@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>K1C CFS Mini</title>
+    <link rel="stylesheet" href="/static/style.css">
+  </head>
+  <body>
+    <main class="page">
+      <section class="hero">
+        <div>
+          <p class="eyebrow">Creality K1C + CFS</p>
+          <h1>Mini dashboard do CFS</h1>
+          <p class="subtitle">
+            Visualizador mínimo dos quatro slots do primeiro CFS, usando o WebSocket local da impressora.
+          </p>
+        </div>
+        <div class="status-panel">
+          <span id="connection-pill" class="pill pill-warn">Conectando</span>
+          <div class="meta-row">
+            <span>Última atualização</span>
+            <strong id="last-update">-</strong>
+          </div>
+          <div class="meta-row">
+            <span>Erro</span>
+            <strong id="last-error">-</strong>
+          </div>
+        </div>
+      </section>
+
+      <section class="slots-section">
+        <div class="section-head">
+          <div>
+            <p class="eyebrow">Slots</p>
+            <h2>Primeiro CFS detectado</h2>
+          </div>
+          <button id="refresh-button" class="ghost-button" type="button">Atualizar agora</button>
+        </div>
+        <div id="slots-grid" class="slots-grid"></div>
+      </section>
+
+      <section class="debug-section">
+        <details>
+          <summary>Debug do protocolo</summary>
+          <div class="debug-meta">
+            <div class="meta-row">
+              <span>Mensagens vistas</span>
+              <strong id="messages-seen">0</strong>
+            </div>
+            <div class="meta-row">
+              <span>Último `boxsInfo`</span>
+              <strong id="last-boxs-info">-</strong>
+            </div>
+          </div>
+          <div class="debug-grid">
+            <article class="debug-card">
+              <h3>Payload cru do último `boxsInfo`</h3>
+              <pre id="raw-boxs-info">Aguardando dados...</pre>
+            </article>
+            <article class="debug-card">
+              <h3>Últimas mensagens</h3>
+              <pre id="raw-frames">Aguardando dados...</pre>
+            </article>
+          </div>
+        </details>
+      </section>
+    </main>
+
+    <template id="slot-template">
+      <article class="slot-card">
+        <div class="slot-top">
+          <div class="slot-badge"></div>
+          <div>
+            <p class="slot-label"></p>
+            <p class="slot-status"></p>
+          </div>
+        </div>
+        <div class="filament-circle-wrap">
+          <div class="filament-circle"></div>
+        </div>
+        <dl class="slot-details"></dl>
+      </article>
+    </template>
+
+    <script src="/static/app.js"></script>
+  </body>
+</html>
