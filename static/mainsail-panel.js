@@ -375,10 +375,15 @@
   async function runSlotAction(slot, action, buttonEl) {
     if (!slot || !action || actionSlot) return;
     const currentSelectedSlot = latestSlots.find(function (item) { return item.selected; });
+    const previousSelectedSlot = currentSelectedSlot ? currentSelectedSlot.slot : "";
+    const actionKind = action === "retract"
+      ? "retract"
+      : (previousSelectedSlot && previousSelectedSlot !== slot.slot ? "switch" : "feed");
     pendingAction = {
       type: action,
+      kind: actionKind,
       targetSlot: slot.slot,
-      previousSelectedSlot: currentSelectedSlot ? currentSelectedSlot.slot : "",
+      previousSelectedSlot: previousSelectedSlot,
       startedAt: Date.now(),
     };
     actionSlot = slot.slot;
@@ -740,10 +745,17 @@
     if (pendingAction) {
       const expired = (Date.now() - pendingAction.startedAt) > ACTION_FALLBACK_MS;
       let completed = false;
-      if (pendingAction.type === "retract") {
-        completed = !currentLoadedSlotName;
+      if (pendingAction.kind === "retract") {
+        completed = !!pendingAction.previousSelectedSlot &&
+          !currentLoadedSlotName;
+      } else if (pendingAction.kind === "switch") {
+        completed = !!currentLoadedSlotName &&
+          currentLoadedSlotName === pendingAction.targetSlot &&
+          currentLoadedSlotName !== pendingAction.previousSelectedSlot;
       } else {
-        completed = !!currentLoadedSlotName && currentLoadedSlotName === pendingAction.targetSlot;
+        completed = !pendingAction.previousSelectedSlot &&
+          !!currentLoadedSlotName &&
+          currentLoadedSlotName === pendingAction.targetSlot;
       }
       if (expired || completed) {
         pendingAction = null;
