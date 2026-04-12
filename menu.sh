@@ -275,12 +275,13 @@ install_local() {
     sh "$SCRIPT_DIR/install.sh"
   printf 'Step 2: writing local .env\n'
   write_local_env
-  printf 'Step 3: configuring autostart\n'
-  configure_local_autostart
-  printf 'Step 4: starting backend\n'
-  start_local_backend
-  printf 'Step 5: injecting Mainsail\n'
+  printf 'Step 3: creating backup\n'
   backup_once
+  printf 'Step 4: configuring autostart\n'
+  configure_local_autostart
+  printf 'Step 5: starting backend\n'
+  start_local_backend
+  printf 'Step 6: injecting Mainsail\n'
   write_injected_file "http://$local_host_ip:$DEFAULT_BACKEND_PORT"
   printf '\nInstalled local mode.\n'
   printf 'Target:  %s\n' "$TARGET_HTML"
