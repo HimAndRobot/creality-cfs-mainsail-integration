@@ -1,5 +1,6 @@
 __pycache__/
 *.pyc
+.k1c-cfs-mini/
 
 .claude/worktrees/
 

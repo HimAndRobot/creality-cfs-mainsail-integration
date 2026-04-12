@@ -301,7 +301,6 @@
 
     ws.onmessage = function (event) {
       const message = event.data;
-      console.log("[K1C CFS][ws] recv:", message);
       let parsed = null;
       try {
         parsed = JSON.parse(message);
@@ -317,7 +316,6 @@
 
       if (parsed && typeof parsed === "object") {
         if (Object.prototype.hasOwnProperty.call(parsed, "feedState")) {
-          console.log("[K1C CFS][ws] feedState:", parsed.feedState);
           previousFeedState = latestFeedState;
           latestFeedState = parsed.feedState;
           latestFeedStateAt = Date.now();
@@ -326,9 +324,7 @@
           }
         }
         if (Object.prototype.hasOwnProperty.call(parsed, "boxsInfo")) {
-          console.log("[K1C CFS][ws] boxsInfo:", parsed.boxsInfo);
           const extracted = extractSlots(parsed);
-          console.log("[K1C CFS][ws] extracted:", extracted);
           latestHumidity = extracted.humidity;
           latestTemp = extracted.temp;
           latestSlots = extracted.slots;
@@ -822,11 +818,13 @@
     const isPresent = !!(selectedSlotData && selectedSlotData.present);
     if (feedBtnEl) {
       feedBtnEl.disabled = actionLocked || !!actionSlot || isLoaded || !isPresent;
+      var feedIconEl = feedBtnEl.querySelector("svg");
       var feedTextEl = feedBtnEl.querySelector("span");
       var externalFeedPending = !!pendingAction
         && pendingAction.source === "machine"
         && pendingAction.kind !== "retract"
         && !pendingAction.targetSlot;
+      if (feedIconEl) feedIconEl.style.display = externalFeedPending ? "none" : "";
       if (feedTextEl) {
         if (externalFeedPending) {
           feedTextEl.innerHTML = '<span class="k1c-cfs-action-loading"><span class="k1c-cfs-action-loading-dot"></span><span>Loading</span></span>';
