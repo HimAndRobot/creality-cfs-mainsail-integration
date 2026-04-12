@@ -15,19 +15,26 @@ has_systemd() {
 
 prepare_app_dir() {
   app_dir="$1"
+  echo "[1/5] Preparing app directory: $app_dir"
   mkdir -p "$app_dir"
   cp "$SCRIPT_DIR/app.py" "$app_dir/app.py"
   cp "$SCRIPT_DIR/requirements.txt" "$app_dir/requirements.txt"
   rm -rf "$app_dir/static"
   cp -r "$SCRIPT_DIR/static" "$app_dir/static"
+  echo "[2/5] Creating virtual environment"
   "$PYTHON_BIN" -m venv "$app_dir/.venv"
+  echo "[3/5] Upgrading pip"
   "$app_dir/.venv/bin/pip" install --upgrade pip
+  echo "[4/5] Installing Python dependencies"
   "$app_dir/.venv/bin/pip" install -r "$app_dir/requirements.txt"
+  echo "[5/5] Files and dependencies are ready"
 }
 
 install_systemd() {
   app_dir="${APP_DIR:-/opt/k1c-cfs-mini}"
+  echo "Systemd detected."
   prepare_app_dir "$app_dir"
+  echo "Writing service file: /etc/systemd/system/${SERVICE_NAME}.service"
 
   cat > "/etc/systemd/system/${SERVICE_NAME}.service" <<EOF
 [Unit]
@@ -61,7 +68,9 @@ EOF
 install_portable() {
   app_dir="${APP_DIR:-$SCRIPT_DIR/.k1c-cfs-mini}"
   launcher="$SCRIPT_DIR/run-local.sh"
+  echo "Portable mode detected."
   prepare_app_dir "$app_dir"
+  echo "Writing launcher: $launcher"
 
   cat > "$launcher" <<EOF
 #!/bin/sh

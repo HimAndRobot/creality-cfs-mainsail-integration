@@ -165,6 +165,20 @@ is_backend_running() {
   return 1
 }
 
+stop_local_backend() {
+  stopped=0
+  if command -v lsof >/dev/null 2>&1; then
+    pids="$(lsof -ti :"$DEFAULT_BACKEND_PORT" 2>/dev/null || true)"
+    if [ "$pids" != "" ]; then
+      echo "$pids" | xargs kill >/dev/null 2>&1 || true
+      stopped=1
+    fi
+  fi
+  if [ "$stopped" -eq 0 ] && command -v pkill >/dev/null 2>&1; then
+    pkill -f "$SCRIPT_DIR/.k1c-cfs-mini/.venv/bin/python.*$SCRIPT_DIR/.k1c-cfs-mini/app.py" >/dev/null 2>&1 || true
+  fi
+}
+
 start_local_backend() {
   if is_backend_running; then
     printf 'Backend already listening on port %s.\n' "$DEFAULT_BACKEND_PORT"
@@ -199,16 +213,40 @@ configure_local_autostart() {
   printf 'Autostart was not configured automatically on this Linux.\n'
 }
 
+remove_local_autostart() {
+  if command -v systemctl >/dev/null 2>&1 && [ -d /etc/systemd/system ]; then
+    systemctl disable --now k1c-cfs-mini >/dev/null 2>&1 || true
+    rm -f /etc/systemd/system/k1c-cfs-mini.service
+    systemctl daemon-reload >/dev/null 2>&1 || true
+    printf 'Removed systemd autostart if present.\n'
+    return 0
+  fi
+  if command -v crontab >/dev/null 2>&1; then
+    tmp_cron="/tmp/k1c-cfs-mini-cron-remove.$$"
+    crontab -l 2>/dev/null | grep -v 'k1c-cfs-mini autostart' > "$tmp_cron" || true
+    crontab "$tmp_cron" >/dev/null 2>&1 || true
+    rm -f "$tmp_cron"
+    printf 'Removed crontab autostart if present.\n'
+    return 0
+  fi
+  printf 'No supported autostart manager found.\n'
+}
+
 install_local() {
   require_file "$TARGET_HTML"
   printf '\nInstalling local backend...\n'
+  printf 'Step 1: running install.sh\n'
   CFS_WS_URL="ws://127.0.0.1:9999" \
   CFS_HTTP_HOST="0.0.0.0" \
   CFS_HTTP_PORT="$DEFAULT_BACKEND_PORT" \
     sh "$SCRIPT_DIR/install.sh"
+  printf 'Step 2: writing local .env\n'
   write_local_env
+  printf 'Step 3: configuring autostart\n'
   configure_local_autostart
+  printf 'Step 4: starting backend\n'
   start_local_backend
+  printf 'Step 5: injecting Mainsail\n'
   backup_once
   write_injected_file "http://127.0.0.1:$DEFAULT_BACKEND_PORT"
   printf '\nInstalled local mode.\n'
@@ -248,20 +286,29 @@ install_menu() {
   done
 }
 
-restore_backup() {
+remove_installation() {
   require_file "$BACKUP_HTML"
+  printf '\nRemoving local setup...\n'
+  printf 'Step 1: stopping backend\n'
+  stop_local_backend
+  printf 'Step 2: removing autostart\n'
+  remove_local_autostart
+  printf 'Step 3: restoring backup\n'
   cp "$BACKUP_HTML" "$TARGET_HTML"
   chmod 644 "$TARGET_HTML" || true
-  printf '\nBackup restored.\n'
+  printf 'Step 4: removing local files\n'
+  rm -f "$SCRIPT_DIR/.env" "$SCRIPT_DIR/run-local.sh"
+  rm -rf "$SCRIPT_DIR/.k1c-cfs-mini"
+  printf '\nRemoved.\n'
   printf 'Target: %s\n' "$TARGET_HTML"
-  printf 'Backup: %s\n\n' "$BACKUP_HTML"
+  printf 'Backup kept at: %s\n\n' "$BACKUP_HTML"
 }
 
 show_menu() {
   printf '\n'
   printf 'K1C CFS Mainsail Injection\n'
   printf '1. Install\n'
-  printf '2. Restore backup\n'
+  printf '2. Remove\n'
   printf 'Q. Quit\n'
   printf '> '
 }
@@ -277,7 +324,7 @@ main() {
         install_menu
         ;;
       2)
-        restore_backup
+        remove_installation
         ;;
       q|Q)
         exit 0
