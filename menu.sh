@@ -166,35 +166,36 @@ is_backend_running() {
   return 1
 }
 
-stop_local_backend() {
-  stopped=0
-  if command -v lsof >/dev/null 2>&1; then
-    pids="$(lsof -ti :"$DEFAULT_BACKEND_PORT" 2>/dev/null || true)"
-    if [ "$pids" != "" ]; then
-      echo "$pids" | xargs kill >/dev/null 2>&1 || true
-      stopped=1
-    fi
+backend_health_ok() {
+  if command -v wget >/dev/null 2>&1; then
+    wget -q -T 3 -O - "http://127.0.0.1:$DEFAULT_BACKEND_PORT/api/health" >/dev/null 2>&1
+    return $?
   fi
-  if [ "$stopped" -eq 0 ] && command -v pkill >/dev/null 2>&1; then
-    pkill -f "$SCRIPT_DIR/.k1c-cfs-mini/.venv/bin/python.*$SCRIPT_DIR/.k1c-cfs-mini/app.py" >/dev/null 2>&1 || true
+  if command -v curl >/dev/null 2>&1; then
+    curl -fsS --max-time 3 "http://127.0.0.1:$DEFAULT_BACKEND_PORT/api/health" >/dev/null 2>&1
+    return $?
   fi
+  return 1
 }
 
 start_local_backend() {
-  if is_backend_running; then
-    printf 'Backend already listening on port %s.\n' "$DEFAULT_BACKEND_PORT"
+  if [ -f "$INIT_SCRIPT" ]; then
+    "$INIT_SCRIPT" restart >/dev/null 2>&1 || true
+  else
+    if [ ! -x "$SCRIPT_DIR/run-local.sh" ]; then
+      die "Missing launcher: $SCRIPT_DIR/run-local.sh"
+    fi
+    nohup "$SCRIPT_DIR/run-local.sh" >/tmp/k1c-cfs-mini.log 2>&1 &
+  fi
+
+  sleep 3
+
+  if backend_health_ok; then
+    printf 'Backend is healthy on port %s.\n' "$DEFAULT_BACKEND_PORT"
     return 0
   fi
-  if [ ! -x "$SCRIPT_DIR/run-local.sh" ]; then
-    die "Missing launcher: $SCRIPT_DIR/run-local.sh"
-  fi
-  nohup "$SCRIPT_DIR/run-local.sh" >/tmp/k1c-cfs-mini.log 2>&1 &
-  sleep 2
-  if is_backend_running; then
-    printf 'Backend started in background.\n'
-  else
-    printf 'Backend start could not be confirmed. Check /tmp/k1c-cfs-mini.log\n'
-  fi
+  printf 'Backend start could not be confirmed. Check /tmp/k1c-cfs-mini.log\n'
+  return 1
 }
 
 configure_local_autostart() {
@@ -261,6 +262,7 @@ remove_local_autostart() {
 
 install_local() {
   require_file "$TARGET_HTML"
+  local_host_ip="$(detect_host_ip)"
   printf '\nInstalling local backend...\n'
   printf 'Step 1: running install.sh\n'
   CFS_WS_URL="ws://127.0.0.1:9999" \
@@ -275,11 +277,11 @@ install_local() {
   start_local_backend
   printf 'Step 5: injecting Mainsail\n'
   backup_once
-  write_injected_file "http://127.0.0.1:$DEFAULT_BACKEND_PORT"
+  write_injected_file "http://$local_host_ip:$DEFAULT_BACKEND_PORT"
   printf '\nInstalled local mode.\n'
   printf 'Target:  %s\n' "$TARGET_HTML"
   printf 'Backup:  %s\n' "$BACKUP_HTML"
-  printf 'Backend: http://127.0.0.1:%s\n' "$DEFAULT_BACKEND_PORT"
+  printf 'Backend: http://%s:%s\n' "$local_host_ip" "$DEFAULT_BACKEND_PORT"
   printf 'Log:     /tmp/k1c-cfs-mini.log\n\n'
 }
 
@@ -315,20 +317,19 @@ install_menu() {
 
 remove_installation() {
   require_file "$BACKUP_HTML"
-  printf '\nRemoving local setup...\n'
-  printf 'Step 1: stopping backend\n'
-  stop_local_backend
-  printf 'Step 2: removing autostart\n'
-  remove_local_autostart
-  printf 'Step 3: restoring backup\n'
+  printf '\nRemoving local files and restoring backup...\n'
+  printf 'Step 1: restoring backup\n'
   cp "$BACKUP_HTML" "$TARGET_HTML"
   chmod 644 "$TARGET_HTML" || true
-  printf 'Step 4: removing local files\n'
+  printf 'Step 2: removing autostart file\n'
+  rm -f "$INIT_SCRIPT"
+  printf 'Step 3: removing local files\n'
   rm -f "$SCRIPT_DIR/.env" "$SCRIPT_DIR/run-local.sh"
   rm -rf "$SCRIPT_DIR/.k1c-cfs-mini"
   printf '\nRemoved.\n'
   printf 'Target: %s\n' "$TARGET_HTML"
-  printf 'Backup kept at: %s\n\n' "$BACKUP_HTML"
+  printf 'Backup kept at: %s\n' "$BACKUP_HTML"
+  printf 'Running processes were left untouched on purpose.\n\n'
 }
 
 show_menu() {
