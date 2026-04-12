@@ -43,6 +43,8 @@
   let latestTemp = null;
   let selectedSlot = "";
   let savingSlot = "";
+  let feedBtnEl = null;
+  let retractBtnEl = null;
 
   if (!document.getElementById(STYLE_ID)) {
     const style = document.createElement("style");
@@ -57,9 +59,10 @@
       ".k1c-cfs-badge svg{width:15px;height:15px;fill:currentColor;opacity:.95}",
       ".k1c-cfs-badge.humidity{color:#77a7ff;background:#232323;box-shadow:inset 0 1px 0 rgba(255,255,255,.02)}",
       ".k1c-cfs-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}",
-      ".k1c-cfs-item{background:#242424;border:1px solid #3a3a3a;border-radius:8px;padding:14px;display:flex;justify-content:space-between;align-items:center;gap:12px;cursor:pointer;transition:background .2s ease,border-color .2s ease}",
+      ".k1c-cfs-item{position:relative;background:#242424;border:1px solid #3a3a3a;border-radius:8px;padding:14px;display:flex;justify-content:space-between;align-items:center;gap:12px;cursor:pointer;transition:background .2s ease,border-color .2s ease}",
       ".k1c-cfs-item:hover{background:#2e2e2e}",
       ".k1c-cfs-item.active{background:#2a2a2a;border-color:var(--spool-color,#666)}",
+      ".k1c-cfs-loaded-dot{position:absolute;top:6px;right:6px;width:7px;height:7px;border-radius:50%;background:#22c55e;box-shadow:0 0 5px #22c55e;z-index:2}",
       ".k1c-cfs-main{display:flex;align-items:center;gap:12px;min-width:0}",
       ".k1c-cfs-spool{width:44px;height:44px;border-radius:50%;background:var(--spool-color,#94a3b8);display:flex;align-items:center;justify-content:center;position:relative;flex-shrink:0;box-shadow:inset 0 0 0 3px rgba(255,255,255,.15),inset 0 0 10px rgba(0,0,0,.6),0 0 8px rgba(0,0,0,.3)}",
       ".k1c-cfs-spool::after{content:'';width:12px;height:12px;border-radius:50%;background:#1c1c1c;box-shadow:inset 0 2px 4px rgba(0,0,0,.8)}",
@@ -70,8 +73,9 @@
       ".k1c-cfs-edit-inline:hover{background:#3a3a3a;color:#ececec}",
       ".k1c-cfs-edit-inline svg,.k1c-cfs-action svg{width:18px;height:18px;fill:currentColor}",
       ".k1c-cfs-controls{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding-top:12px;border-top:1px solid #3a3a3a}",
-      ".k1c-cfs-action{background:#2a2a2a;color:#ececec;border:1px solid #3a3a3a;padding:12px 14px;border-radius:8px;font-size:13px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:8px}",
-      ".k1c-cfs-action:hover{background:#333;border-color:#555}",
+      ".k1c-cfs-action{background:#2a2a2a;color:#ececec;border:1px solid #3a3a3a;padding:12px 14px;border-radius:8px;font-size:13px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;transition:all .2s ease}",
+      ".k1c-cfs-action:hover:not(:disabled){background:#333;border-color:#555}",
+      ".k1c-cfs-action:disabled{opacity:.35;cursor:not-allowed}",
       "#" + MODAL_ID + "{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;padding:18px;background:rgba(0,0,0,.65);z-index:10001;backdrop-filter:blur(2px)}",
       ".k1c-cfs-modal-card{width:min(520px,calc(100vw - 24px));background:#1a1a1e;color:#ececec;border:1px solid #333;border-radius:12px;padding:24px;display:flex;flex-direction:column;gap:24px;box-shadow:0 25px 50px -12px rgba(0,0,0,.9)}",
       ".k1c-cfs-modal-head{display:flex;justify-content:space-between;align-items:center;gap:12px;padding-bottom:16px;border-bottom:1px solid #2a2a2a}",
@@ -159,6 +163,7 @@
           name: String(draft.name || "").trim(),
           temp_min: String(draft.temp_min || "").trim(),
           temp_max: String(draft.temp_max || "").trim(),
+          color: String(draft.color || "").trim(),
         }),
       });
       if (!response.ok) throw new Error("HTTP " + response.status);
@@ -327,18 +332,22 @@
     const feedBtn = document.createElement("button");
     feedBtn.type = "button";
     feedBtn.className = "k1c-cfs-action";
+    feedBtn.disabled = true;
     feedBtn.appendChild(createSvgPath("M11 4v11.2l-3.6-3.6-1.4 1.4 6 6 6-6-1.4-1.4-3.6 3.6V4h-2z"));
     const feedText = document.createElement("span");
     feedText.textContent = "Feed";
     feedBtn.appendChild(feedText);
+    feedBtnEl = feedBtn;
 
     const retractBtn = document.createElement("button");
     retractBtn.type = "button";
     retractBtn.className = "k1c-cfs-action";
+    retractBtn.disabled = true;
     retractBtn.appendChild(createSvgPath("M13 20V8.8l3.6 3.6 1.4-1.4-6-6-6 6 1.4 1.4 3.6-3.6V20h2z"));
     const retractText = document.createElement("span");
     retractText.textContent = "Retract";
     retractBtn.appendChild(retractText);
+    retractBtnEl = retractBtn;
 
     controls.appendChild(feedBtn);
     controls.appendChild(retractBtn);
@@ -436,9 +445,25 @@
       };
 
       item.appendChild(main);
+      if (slot.selected) {
+        const dot = document.createElement("div");
+        dot.className = "k1c-cfs-loaded-dot";
+        dot.title = "Loaded";
+        item.appendChild(dot);
+      }
       item.appendChild(edit);
       gridEl.appendChild(item);
     });
+
+    const selectedSlotData = latestSlots.find(function (s) { return s.slot === selectedSlot; });
+    const isLoaded = !!(selectedSlotData && selectedSlotData.selected);
+    const isPresent = !!(selectedSlotData && selectedSlotData.present);
+    if (feedBtnEl) {
+      feedBtnEl.disabled = isLoaded || !isPresent;
+      var feedTextEl = feedBtnEl.querySelector("span");
+      if (feedTextEl) feedTextEl.textContent = (isPresent && !isLoaded) ? "Switch" : "Feed";
+    }
+    if (retractBtnEl) retractBtnEl.disabled = !isPresent;
 
     updateStatus(connected);
     updateHumidity(latestHumidity, latestTemp);

@@ -343,10 +343,10 @@ class CfsWsClient(threading.Thread):
             return False, "slot-not-present"
 
         raw = slot_data.get("raw") or {}
-        resolved_min = temp_min if temp_min is not None else (
+        resolved_min = temp_min if temp_min is not None else normalize_temperature_value(
             raw.get("minTemp") if raw.get("minTemp") is not None else slot_data.get("temp_min")
         )
-        resolved_max = temp_max if temp_max is not None else (
+        resolved_max = temp_max if temp_max is not None else normalize_temperature_value(
             raw.get("maxTemp") if raw.get("maxTemp") is not None else slot_data.get("temp_max")
         )
 
