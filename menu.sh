@@ -7,6 +7,7 @@ BACKUP_HTML="${BACKUP_HTML:-/usr/data/mainsail/index.html.k1c-cfs-mini.bak}"
 DEFAULT_BACKEND_PORT="${CFS_HTTP_PORT:-8010}"
 INJECT_START="<!-- K1C_CFS_INJECT_START -->"
 INJECT_END="<!-- K1C_CFS_INJECT_END -->"
+INIT_SCRIPT="/etc/init.d/S59k1c_cfs_mini"
 
 die() {
   printf '%s\n' "$1" >&2
@@ -197,39 +198,65 @@ start_local_backend() {
 }
 
 configure_local_autostart() {
-  if command -v systemctl >/dev/null 2>&1 && [ -d /etc/systemd/system ]; then
-    printf 'Autostart handled by systemd.\n'
-    return 0
-  fi
-  if command -v crontab >/dev/null 2>&1; then
-    tmp_cron="/tmp/k1c-cfs-mini-cron.$$"
-    crontab -l 2>/dev/null | grep -v 'k1c-cfs-mini autostart' > "$tmp_cron" || true
-    printf '@reboot %s/run-local.sh >/tmp/k1c-cfs-mini.log 2>&1 # k1c-cfs-mini autostart\n' "$SCRIPT_DIR" >> "$tmp_cron"
-    crontab "$tmp_cron"
-    rm -f "$tmp_cron"
-    printf 'Autostart configured in crontab.\n'
+  if command -v start-stop-daemon >/dev/null 2>&1 && [ -d /etc/init.d ]; then
+    cat > "$INIT_SCRIPT" <<EOF
+#!/bin/sh
+PID_FILE="/var/run/k1c-cfs-mini.pid"
+PYTHON_BIN="$SCRIPT_DIR/.k1c-cfs-mini/.venv/bin/python"
+APP_FILE="$SCRIPT_DIR/.k1c-cfs-mini/app.py"
+CFS_WS_URL="ws://127.0.0.1:9999"
+CFS_HTTP_HOST="0.0.0.0"
+CFS_HTTP_PORT="$DEFAULT_BACKEND_PORT"
+
+start() {
+  [ -x "\$PYTHON_BIN" ] || exit 1
+  export CFS_WS_URL CFS_HTTP_HOST CFS_HTTP_PORT
+  start-stop-daemon -S -q -b -m -p "\$PID_FILE" --exec "\$PYTHON_BIN" -- "\$APP_FILE"
+}
+
+stop() {
+  start-stop-daemon -K -q -p "\$PID_FILE" || true
+}
+
+restart() {
+  stop
+  sleep 1
+  start
+}
+
+case "\$1" in
+  start)
+    start
+    ;;
+  stop)
+    stop
+    ;;
+  restart|reload)
+    restart
+    ;;
+  *)
+    echo "Usage: \$0 {start|stop|restart}"
+    exit 1
+    ;;
+esac
+
+exit \$?
+EOF
+    chmod +x "$INIT_SCRIPT"
+    printf 'Autostart configured: %s\n' "$INIT_SCRIPT"
     return 0
   fi
   printf 'Autostart was not configured automatically on this Linux.\n'
 }
 
 remove_local_autostart() {
-  if command -v systemctl >/dev/null 2>&1 && [ -d /etc/systemd/system ]; then
-    systemctl disable --now k1c-cfs-mini >/dev/null 2>&1 || true
-    rm -f /etc/systemd/system/k1c-cfs-mini.service
-    systemctl daemon-reload >/dev/null 2>&1 || true
-    printf 'Removed systemd autostart if present.\n'
+  if [ -f "$INIT_SCRIPT" ]; then
+    "$INIT_SCRIPT" stop >/dev/null 2>&1 || true
+    rm -f "$INIT_SCRIPT"
+    printf 'Removed init autostart: %s\n' "$INIT_SCRIPT"
     return 0
   fi
-  if command -v crontab >/dev/null 2>&1; then
-    tmp_cron="/tmp/k1c-cfs-mini-cron-remove.$$"
-    crontab -l 2>/dev/null | grep -v 'k1c-cfs-mini autostart' > "$tmp_cron" || true
-    crontab "$tmp_cron" >/dev/null 2>&1 || true
-    rm -f "$tmp_cron"
-    printf 'Removed crontab autostart if present.\n'
-    return 0
-  fi
-  printf 'No supported autostart manager found.\n'
+  printf 'No init autostart script found.\n'
 }
 
 install_local() {
