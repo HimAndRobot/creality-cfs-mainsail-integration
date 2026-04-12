@@ -403,8 +403,9 @@
       window.setTimeout(requestBoxsInfo, 300);
     } catch (error) {
       window.alert("Failed to run " + action + " on " + slot.slot + ": " + (error.message || String(error)));
-    } finally {
       actionSlot = "";
+      pendingAction = null;
+    } finally {
       render(latestSlots, latestConnected);
     }
   }
@@ -769,6 +770,7 @@
           currentLoadedSlotName === pendingAction.targetSlot;
       }
       if (expired || completed) {
+        actionSlot = "";
         pendingAction = null;
       } else {
         hasPendingPrinterAction = true;
