@@ -262,8 +262,8 @@
       slots: SLOT_LETTERS.map(function (letter) {
         return defaults[String(boxId) + letter] || defaults["1" + letter];
       }),
-      humidity: boxsInfo.cfsHumidity,
-      temp: boxsInfo.cfsTemp,
+      humidity: firstCfsBox.humidity,
+      temp: firstCfsBox.temp,
     };
   }
 
