@@ -90,6 +90,8 @@
       ".k1c-cfs-action{background:#2a2a2a;color:#ececec;border:1px solid #3a3a3a;padding:12px 14px;border-radius:8px;font-size:13px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;transition:all .2s ease}",
       ".k1c-cfs-action:hover:not(:disabled){background:#333;border-color:#555}",
       ".k1c-cfs-action:disabled{opacity:.35;cursor:not-allowed}",
+      ".k1c-cfs-action-loading{display:inline-flex;align-items:center;gap:8px}",
+      ".k1c-cfs-action-loading-dot{width:9px;height:9px;border-radius:50%;background:#60a5fa;box-shadow:0 0 0 rgba(96,165,250,.45);animation:k1c-cfs-pulse 1s ease-in-out infinite;flex-shrink:0}",
       "#" + MODAL_ID + "{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;padding:18px;background:rgba(0,0,0,.65);z-index:10001;backdrop-filter:blur(2px)}",
       ".k1c-cfs-modal-card{width:min(520px,calc(100vw - 24px));background:#1a1a1e;color:#ececec;border:1px solid #333;border-radius:12px;padding:24px;display:flex;flex-direction:column;gap:24px;box-shadow:0 25px 50px -12px rgba(0,0,0,.9)}",
       ".k1c-cfs-modal-head{display:flex;justify-content:space-between;align-items:center;gap:12px;padding-bottom:16px;border-bottom:1px solid #2a2a2a}",
@@ -821,7 +823,17 @@
     if (feedBtnEl) {
       feedBtnEl.disabled = actionLocked || !!actionSlot || isLoaded || !isPresent;
       var feedTextEl = feedBtnEl.querySelector("span");
-      if (feedTextEl) feedTextEl.textContent = (isPresent && currentLoadedSlotName && !isLoaded) ? "Switch" : "Feed";
+      var externalFeedPending = !!pendingAction
+        && pendingAction.source === "machine"
+        && pendingAction.kind !== "retract"
+        && !pendingAction.targetSlot;
+      if (feedTextEl) {
+        if (externalFeedPending) {
+          feedTextEl.innerHTML = '<span class="k1c-cfs-action-loading"><span class="k1c-cfs-action-loading-dot"></span><span>Loading</span></span>';
+        } else {
+          feedTextEl.textContent = (isPresent && currentLoadedSlotName && !isLoaded) ? "Switch" : "Feed";
+        }
+      }
     }
     if (retractBtnEl) retractBtnEl.disabled = actionLocked || !!actionSlot || !isPresent;
 
