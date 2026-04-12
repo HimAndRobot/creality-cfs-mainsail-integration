@@ -108,6 +108,8 @@ class CfsState:
             "frames": deque(maxlen=DEBUG_BUFFER_SIZE),
             "cfs_humidity": None,
             "cfs_temp": None,
+            "feed_state": None,
+            "feed_state_at": 0,
             "slots": [empty_slot(f"1{letter}") for letter in SLOT_LETTERS],
         }
 
@@ -128,6 +130,9 @@ class CfsState:
             self.data["messages_seen"] += 1
             self.data["last_message_at"] = time.time()
             self.data["raw_last_message"] = parsed if parsed is not None else raw
+            if source == "recv" and isinstance(parsed, dict) and "feedState" in parsed:
+                self.data["feed_state"] = parsed.get("feedState")
+                self.data["feed_state_at"] = time.time()
 
     def snapshot(self):
         with self.lock:
@@ -372,6 +377,27 @@ class CfsWsClient(threading.Thread):
             return False, "ws-send-failed"
         return True, payload
 
+    def feed_in_or_out(self, slot, *, is_feed):
+        snap = self.state.snapshot()
+        slot_data = next((item for item in snap["slots"] if item.get("slot") == slot), None)
+        if not slot_data or not slot_data.get("present"):
+            return False, "slot-not-present"
+
+        payload = {
+            "method": "set",
+            "params": {
+                "feedInOrOut": {
+                    "boxId": slot_data.get("box_id") or 1,
+                    "materialId": slot_data.get("material_index"),
+                    "isFeed": 1 if is_feed else 0,
+                }
+            },
+        }
+        ok = self.send_json(payload)
+        if not ok:
+            return False, "ws-send-failed"
+        return True, payload
+
     def keepalive_loop(self):
         while not self.stop_event.is_set():
             now = time.time()
@@ -430,6 +456,8 @@ def api_cfs():
             "last_boxs_info_at": snap["last_boxs_info_at"],
             "cfs_humidity": snap["cfs_humidity"],
             "cfs_temp": snap["cfs_temp"],
+            "feed_state": snap["feed_state"],
+            "feed_state_at": snap["feed_state_at"],
             "slots": snap["slots"],
         }
     )
@@ -476,6 +504,24 @@ def api_cfs_update_slot(slot):
     return jsonify({"ok": True, "slot": updated_slot, "allowed_types": MATERIAL_TYPES, "sent": result})
 
 
+@app.route("/api/cfs/slot/<slot>/action", methods=["POST"])
+def api_cfs_slot_action(slot):
+    slot = str(slot or "").strip().upper()
+    if slot not in {f"1{letter}" for letter in SLOT_LETTERS}:
+        return jsonify({"ok": False, "error": "invalid-slot"}), 400
+
+    payload = request.get_json(silent=True) or {}
+    action = str(payload.get("action") or "").strip().lower()
+    if action not in {"feed", "retract"}:
+        return jsonify({"ok": False, "error": "invalid-action", "allowed_actions": ["feed", "retract"]}), 400
+
+    ok, result = ws_client.feed_in_or_out(slot, is_feed=(action == "feed"))
+    if not ok:
+        return jsonify({"ok": False, "error": result}), 400
+
+    return jsonify({"ok": True, "slot": slot, "action": action, "sent": result})
+
+
 @app.route("/api/debug")
 def api_debug():
     snap = state.snapshot()
@@ -486,6 +532,8 @@ def api_debug():
             "last_message_at": snap["last_message_at"],
             "last_boxs_info_at": snap["last_boxs_info_at"],
             "messages_seen": snap["messages_seen"],
+            "feed_state": snap["feed_state"],
+            "feed_state_at": snap["feed_state_at"],
             "raw_last_message": snap["raw_last_message"],
             "raw_last_boxs_info": snap["raw_last_boxs_info"],
             "frames": snap["frames"],

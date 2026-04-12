@@ -13,6 +13,7 @@
   const POLL_MS = 3000;
   const RETRY_MS = 1200;
   const FLOAT_AFTER_MS = 20000;
+  const ACTION_FALLBACK_MS = 90000;
   const MATERIAL_TYPES = ["PLA", "PETG", "ABS", "ASA", "TPU", "PA", "PC", "OTHER"];
   const MATERIAL_PRESETS = {
     PLA: { vendor: "Generic", name: "Generic PLA", temp_min: "190", temp_max: "240" },
@@ -41,8 +42,12 @@
   let latestConnected = false;
   let latestHumidity = null;
   let latestTemp = null;
+  let latestFeedState = null;
+  let latestFeedStateAt = 0;
   let selectedSlot = "";
   let savingSlot = "";
+  let actionSlot = "";
+  let pendingAction = null;
   let feedBtnEl = null;
   let retractBtnEl = null;
 
@@ -62,6 +67,12 @@
       ".k1c-cfs-item{position:relative;background:#242424;border:1px solid #3a3a3a;border-radius:8px;padding:14px;display:flex;justify-content:space-between;align-items:center;gap:12px;cursor:pointer;transition:background .2s ease,border-color .2s ease}",
       ".k1c-cfs-item:hover{background:#2e2e2e}",
       ".k1c-cfs-item.active{background:#2a2a2a;border-color:var(--spool-color,#666)}",
+      ".k1c-cfs-item.empty{background:#202020;border-color:#2d2d2d;opacity:.58}",
+      ".k1c-cfs-item.empty:hover{background:#202020}",
+      ".k1c-cfs-item.empty .k1c-cfs-spool{background:#4b5563;box-shadow:inset 0 0 0 3px rgba(255,255,255,.06),inset 0 0 10px rgba(0,0,0,.55)}",
+      ".k1c-cfs-item.empty .k1c-cfs-spool::after{background:#202020}",
+      ".k1c-cfs-item.empty .k1c-cfs-channel,.k1c-cfs-item.empty .k1c-cfs-type,.k1c-cfs-item.empty .k1c-cfs-edit-inline{color:#7b7b7b}",
+      ".k1c-cfs-item.empty .k1c-cfs-edit-inline:hover{background:transparent;color:#7b7b7b}",
       ".k1c-cfs-loaded-dot{position:absolute;top:6px;right:6px;width:7px;height:7px;border-radius:50%;background:#22c55e;box-shadow:0 0 5px #22c55e;z-index:2}",
       ".k1c-cfs-main{display:flex;align-items:center;gap:12px;min-width:0}",
       ".k1c-cfs-spool{width:44px;height:44px;border-radius:50%;background:var(--spool-color,#94a3b8);display:flex;align-items:center;justify-content:center;position:relative;flex-shrink:0;box-shadow:inset 0 0 0 3px rgba(255,255,255,.15),inset 0 0 10px rgba(0,0,0,.6),0 0 8px rgba(0,0,0,.3)}",
@@ -146,6 +157,33 @@
   function closeModal() {
     const modal = document.getElementById(MODAL_ID);
     if (modal) modal.remove();
+  }
+
+  async function runSlotAction(slot, action, buttonEl) {
+    if (!slot || !action || actionSlot) return;
+    const currentSelectedSlot = latestSlots.find(function (item) { return item.selected; });
+    pendingAction = {
+      type: action,
+      targetSlot: slot.slot,
+      previousSelectedSlot: currentSelectedSlot ? currentSelectedSlot.slot : "",
+      startedAt: Date.now(),
+    };
+    actionSlot = slot.slot;
+    if (buttonEl) buttonEl.disabled = true;
+    try {
+      const response = await fetch(BASE + "/api/cfs/slot/" + encodeURIComponent(slot.slot) + "/action", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: action }),
+      });
+      if (!response.ok) throw new Error("HTTP " + response.status);
+      await poll();
+    } catch (error) {
+      window.alert("Failed to run " + action + " on " + slot.slot + ": " + (error.message || String(error)));
+    } finally {
+      actionSlot = "";
+      render(latestSlots, latestConnected);
+    }
   }
 
   async function saveSlot(slot, draft, saveButton) {
@@ -337,6 +375,12 @@
     const feedText = document.createElement("span");
     feedText.textContent = "Feed";
     feedBtn.appendChild(feedText);
+    feedBtn.onclick = function () {
+      const slot = latestSlots.find(function (item) { return item.slot === selectedSlot; });
+      if (!slot) return;
+      const action = slot.selected ? "feed" : "feed";
+      runSlotAction(slot, action, feedBtn);
+    };
     feedBtnEl = feedBtn;
 
     const retractBtn = document.createElement("button");
@@ -347,6 +391,11 @@
     const retractText = document.createElement("span");
     retractText.textContent = "Retract";
     retractBtn.appendChild(retractText);
+    retractBtn.onclick = function () {
+      const slot = latestSlots.find(function (item) { return item.slot === selectedSlot; });
+      if (!slot) return;
+      runSlotAction(slot, "retract", retractBtn);
+    };
     retractBtnEl = retractBtn;
 
     controls.appendChild(feedBtn);
@@ -408,12 +457,14 @@
 
     latestSlots.forEach(function (slot) {
       const item = document.createElement("div");
-      item.className = "k1c-cfs-item" + (selectedSlot === slot.slot ? " active" : "");
+      item.className = "k1c-cfs-item" + (selectedSlot === slot.slot ? " active" : "") + (!slot.present ? " empty" : "");
       item.style.setProperty("--spool-color", normalizeColor(slot.color));
-      item.onclick = function () {
-        selectedSlot = slot.slot;
-        render(latestSlots, latestConnected);
-      };
+      if (slot.present) {
+        item.onclick = function () {
+          selectedSlot = slot.slot;
+          render(latestSlots, latestConnected);
+        };
+      }
 
       const main = document.createElement("div");
       main.className = "k1c-cfs-main";
@@ -438,9 +489,11 @@
       edit.type = "button";
       edit.className = "k1c-cfs-edit-inline";
       edit.title = "Edit";
+      edit.disabled = !slot.present;
       edit.appendChild(createSvgPath("M3 17.2v4.5h4.5l11-11.1-4.5-4.5L3 17.2zm18.7-10.3c.4-.4.4-1 0-1.4l-3.1-3.1c-.4-.4-1-.4-1.4 0l-2.2 2.2 4.5 4.5 2.2-2.2z"));
       edit.onclick = function (event) {
         event.stopPropagation();
+        if (!slot.present) return;
         openEditModal(slot);
       };
 
@@ -456,14 +509,31 @@
     });
 
     const selectedSlotData = latestSlots.find(function (s) { return s.slot === selectedSlot; });
+    const currentLoadedSlot = latestSlots.find(function (s) { return s.selected; });
+    const currentLoadedSlotName = currentLoadedSlot ? currentLoadedSlot.slot : "";
     const isLoaded = !!(selectedSlotData && selectedSlotData.selected);
     const isPresent = !!(selectedSlotData && selectedSlotData.present);
-    if (feedBtnEl) {
-      feedBtnEl.disabled = isLoaded || !isPresent;
-      var feedTextEl = feedBtnEl.querySelector("span");
-      if (feedTextEl) feedTextEl.textContent = (isPresent && !isLoaded) ? "Switch" : "Feed";
+    let hasPendingPrinterAction = false;
+    if (pendingAction) {
+      const expired = (Date.now() - pendingAction.startedAt) > ACTION_FALLBACK_MS;
+      let completed = false;
+      if (pendingAction.type === "retract") {
+        completed = !currentLoadedSlotName;
+      } else {
+        completed = !!currentLoadedSlotName && currentLoadedSlotName === pendingAction.targetSlot;
+      }
+      if (expired || completed) {
+        pendingAction = null;
+      } else {
+        hasPendingPrinterAction = true;
+      }
     }
-    if (retractBtnEl) retractBtnEl.disabled = !isPresent;
+    if (feedBtnEl) {
+      feedBtnEl.disabled = !!actionSlot || hasPendingPrinterAction || isLoaded || !isPresent;
+      var feedTextEl = feedBtnEl.querySelector("span");
+      if (feedTextEl) feedTextEl.textContent = (isPresent && currentLoadedSlotName && !isLoaded) ? "Switch" : "Feed";
+    }
+    if (retractBtnEl) retractBtnEl.disabled = !!actionSlot || hasPendingPrinterAction || !isPresent;
 
     updateStatus(connected);
     updateHumidity(latestHumidity, latestTemp);
@@ -476,6 +546,8 @@
       const data = await response.json();
       latestHumidity = data.cfs_humidity;
       latestTemp = data.cfs_temp;
+      latestFeedState = data.feed_state;
+      latestFeedStateAt = data.feed_state_at || 0;
       render(Array.isArray(data.slots) ? data.slots : [], !!data.connected);
     } catch (error) {
       updateStatus(false);

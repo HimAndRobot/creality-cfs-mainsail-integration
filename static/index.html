@@ -1,44 +1,58 @@
 <!doctype html>
-<html lang="pt-BR">
+<html lang="pt-BR" data-theme="dark">
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>K1C CFS Mini</title>
+    <title>K1C CFS Dashboard</title>
     <link rel="stylesheet" href="/static/style.css">
   </head>
   <body>
-    <main class="page">
-      <section class="hero">
-        <div>
-          <p class="eyebrow">Creality K1C + CFS</p>
-          <h1>Mini dashboard do CFS</h1>
-          <p class="subtitle">
-            Visualizador mínimo dos quatro slots do primeiro CFS, usando o WebSocket local da impressora.
-          </p>
+    <div class="container">
+      <header class="dashboard-header">
+        <div class="header-info">
+          <span class="printer-model">Creality K1C + Módulo CFS</span>
+          <h1 class="page-title">CFS Dashboard</h1>
+          <p class="page-desc">Monitore e gerencie os filamentos em tempo real.</p>
         </div>
-        <div class="status-panel">
-          <span id="connection-pill" class="pill pill-warn">Conectando</span>
-          <div class="meta-row">
-            <span>Última atualização</span>
-            <strong id="last-update">-</strong>
-          </div>
-          <div class="meta-row">
-            <span>Erro</span>
-            <strong id="last-error">-</strong>
-          </div>
-        </div>
-      </section>
 
-      <section class="slots-section">
-        <div class="section-head">
-          <div>
-            <p class="eyebrow">Slots</p>
-            <h2>Primeiro CFS detectado</h2>
+        <div class="header-actions">
+          <div class="status-panel">
+            <div id="connection-pill" class="badge-status badge-status-offline">Desconectado</div>
+            <span class="last-update" id="time-display">Atualizado agora</span>
+            <span class="last-update">Erro: <strong id="last-error">-</strong></span>
           </div>
-          <button id="refresh-button" class="ghost-button" type="button">Atualizar agora</button>
+
+          <div class="header-buttons">
+            <button id="refresh-button" class="btn-icon" type="button" title="Atualizar agora">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12 6V3L8 7l4 4V8c2.76 0 5 2.24 5 5a5 5 0 1 1-9.9-1H5.02A7 7 0 1 0 12 6z"></path>
+              </svg>
+            </button>
+
+            <button class="btn-icon" id="themeToggle" type="button" title="Alternar tema">
+              <svg viewBox="0 0 24 24" id="icon-moon" aria-hidden="true">
+                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+              </svg>
+              <svg viewBox="0 0 24 24" id="icon-sun" aria-hidden="true" style="display:none">
+                <circle cx="12" cy="12" r="5"></circle>
+                <line x1="12" y1="1" x2="12" y2="3"></line>
+                <line x1="12" y1="21" x2="12" y2="23"></line>
+                <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                <line x1="1" y1="12" x2="3" y2="12"></line>
+                <line x1="21" y1="12" x2="23" y2="12"></line>
+                <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+              </svg>
+            </button>
+          </div>
         </div>
+      </header>
+
+      <main>
+        <h2 class="section-title">Módulo Principal</h2>
         <div id="slots-grid" class="slots-grid"></div>
-      </section>
+      </main>
 
       <section class="debug-section">
         <details>
@@ -49,13 +63,13 @@
               <strong id="messages-seen">0</strong>
             </div>
             <div class="meta-row">
-              <span>Último `boxsInfo`</span>
+              <span>Último boxsInfo</span>
               <strong id="last-boxs-info">-</strong>
             </div>
           </div>
           <div class="debug-grid">
             <article class="debug-card">
-              <h3>Payload cru do último `boxsInfo`</h3>
+              <h3>Payload cru do último boxsInfo</h3>
               <pre id="raw-boxs-info">Aguardando dados...</pre>
             </article>
             <article class="debug-card">
@@ -65,23 +79,105 @@
           </div>
         </details>
       </section>
-    </main>
+    </div>
 
     <template id="slot-template">
       <article class="slot-card">
-        <div class="slot-top">
-          <div class="slot-badge"></div>
-          <div>
-            <p class="slot-label"></p>
-            <p class="slot-status"></p>
+        <div class="slot-header">
+          <div class="slot-id-wrap">
+            <span class="slot-id"></span>
+            <span class="slot-state"></span>
+          </div>
+          <div class="slot-header-actions">
+            <button class="btn-icon-small slot-edit-button" type="button" title="Editar slot">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17.2v4.5h4.5l11-11.1-4.5-4.5L3 17.2zm18.7-10.3c.4-.4.4-1 0-1.4l-3.1-3.1c-.4-.4-1-.4-1.4 0l-2.2 2.2 4.5 4.5 2.2-2.2z"></path></svg>
+            </button>
           </div>
         </div>
-        <div class="filament-circle-wrap">
-          <div class="filament-circle"></div>
+
+        <div class="spool-display">
+          <div class="spool-graphic"></div>
         </div>
-        <dl class="slot-details"></dl>
+
+        <div class="material-details">
+          <div class="mat-main-info">
+            <div class="mat-type-row">
+              <div class="status-indicator"></div>
+              <span class="mat-type"></span>
+            </div>
+            <span class="mat-name"></span>
+          </div>
+
+          <div class="data-grid">
+            <div class="data-item data-item-wide">
+              <span class="data-label">Marca / Fornecedor</span>
+              <span class="data-value slot-vendor"></span>
+            </div>
+            <div class="data-item">
+              <span class="data-label">Temp. Mínima</span>
+              <span class="data-value slot-temp-min"></span>
+            </div>
+            <div class="data-item">
+              <span class="data-label">Temp. Máxima</span>
+              <span class="data-value slot-temp-max"></span>
+            </div>
+          </div>
+        </div>
       </article>
     </template>
+
+    <div class="modal-overlay" id="editModal">
+      <div class="modal">
+        <div class="modal-header">
+          <h2 id="modalTitle">EDITAR SLOT</h2>
+          <button class="btn-icon-small" id="modalCloseButton" type="button" title="Fechar">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"></path></svg>
+          </button>
+        </div>
+
+        <div class="color-avatar-section">
+          <div class="color-avatar" id="colorAvatarPreview">
+            <input type="color" id="colorPickerInput">
+            <div class="color-avatar-overlay">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17.2v4.5h4.5l11-11.1-4.5-4.5L3 17.2zm18.7-10.3c.4-.4.4-1 0-1.4l-3.1-3.1c-.4-.4-1-.4-1.4 0l-2.2 2.2 4.5 4.5 2.2-2.2z"></path></svg>
+            </div>
+          </div>
+          <span class="color-avatar-label">Cor do Material</span>
+        </div>
+
+        <div class="form-grid">
+          <div class="form-group">
+            <label for="materialType">Tipo de Material</label>
+            <select id="materialType" class="form-control"></select>
+          </div>
+
+          <div class="form-group">
+            <label for="materialVendor">Fornecedor / Marca</label>
+            <input id="materialVendor" type="text" class="form-control">
+          </div>
+
+          <div class="form-group form-group-wide">
+            <label for="materialName">Nome Personalizado</label>
+            <input id="materialName" type="text" class="form-control">
+          </div>
+
+          <div class="form-group">
+            <label for="materialTempMin">Temp. Mínima (°C)</label>
+            <input id="materialTempMin" type="number" class="form-control">
+          </div>
+
+          <div class="form-group">
+            <label for="materialTempMax">Temp. Máxima (°C)</label>
+            <input id="materialTempMax" type="number" class="form-control">
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button class="btn-modal" id="modalCancelButton" type="button">Cancelar</button>
+          <button class="btn-modal btn-save" id="modalSaveButton" type="button">Salvar Alterações</button>
+        </div>
+      </div>
+    </div>
 
     <script src="/static/app.js"></script>
   </body>

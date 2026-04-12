@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+
+.claude/worktrees/
+
+debug-capture.json
+debug-pulse*.json
