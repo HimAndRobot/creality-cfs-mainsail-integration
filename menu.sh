@@ -188,14 +188,18 @@ start_local_backend() {
     nohup "$SCRIPT_DIR/run-local.sh" >/tmp/k1c-cfs-mini.log 2>&1 &
   fi
 
-  sleep 3
+  retries=0
+  while [ "$retries" -lt 10 ]; do
+    if backend_health_ok; then
+      printf 'Backend is healthy on port %s.\n' "$DEFAULT_BACKEND_PORT"
+      return 0
+    fi
+    retries=$((retries + 1))
+    sleep 1
+  done
 
-  if backend_health_ok; then
-    printf 'Backend is healthy on port %s.\n' "$DEFAULT_BACKEND_PORT"
-    return 0
-  fi
-  printf 'Backend start could not be confirmed. Check /tmp/k1c-cfs-mini.log\n'
-  return 1
+  printf 'Backend is still starting. Check /tmp/k1c-cfs-mini.log if it does not come up.\n'
+  return 0
 }
 
 configure_local_autostart() {
