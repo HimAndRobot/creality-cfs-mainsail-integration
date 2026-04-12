@@ -74,6 +74,8 @@
       ".k1c-cfs-item.empty .k1c-cfs-channel,.k1c-cfs-item.empty .k1c-cfs-type,.k1c-cfs-item.empty .k1c-cfs-edit-inline{color:#7b7b7b}",
       ".k1c-cfs-item.empty .k1c-cfs-edit-inline:hover{background:transparent;color:#7b7b7b}",
       ".k1c-cfs-loaded-dot{position:absolute;top:6px;right:6px;width:7px;height:7px;border-radius:50%;background:#22c55e;box-shadow:0 0 5px #22c55e;z-index:2}",
+      ".k1c-cfs-loading-dot{position:absolute;top:4px;right:4px;width:11px;height:11px;border-radius:50%;border:2px solid rgba(255,255,255,.18);border-top-color:#60a5fa;animation:k1c-cfs-spin .8s linear infinite;z-index:2}",
+      "@keyframes k1c-cfs-spin{to{transform:rotate(360deg)}}",
       ".k1c-cfs-main{display:flex;align-items:center;gap:12px;min-width:0}",
       ".k1c-cfs-spool{width:44px;height:44px;border-radius:50%;background:var(--spool-color,#94a3b8);display:flex;align-items:center;justify-content:center;position:relative;flex-shrink:0;box-shadow:inset 0 0 0 3px rgba(255,255,255,.15),inset 0 0 10px rgba(0,0,0,.6),0 0 8px rgba(0,0,0,.3)}",
       ".k1c-cfs-spool::after{content:'';width:12px;height:12px;border-radius:50%;background:#1c1c1c;box-shadow:inset 0 2px 4px rgba(0,0,0,.8)}",
@@ -727,7 +729,13 @@
       };
 
       item.appendChild(main);
-      if (slot.selected) {
+      const slotIsPending = !!pendingAction && (pendingAction.targetSlot === slot.slot || pendingAction.previousSelectedSlot === slot.slot);
+      if (slotIsPending) {
+        const spinner = document.createElement("div");
+        spinner.className = "k1c-cfs-loading-dot";
+        spinner.title = "Running";
+        item.appendChild(spinner);
+      } else if (slot.selected) {
         const dot = document.createElement("div");
         dot.className = "k1c-cfs-loaded-dot";
         dot.title = "Loaded";
@@ -750,26 +758,13 @@
     const isPresent = !!(selectedSlotData && selectedSlotData.present);
     let hasPendingPrinterAction = false;
     if (pendingAction) {
-      const expired = (Date.now() - pendingAction.startedAt) > ACTION_FALLBACK_MS;
       let completed = false;
       if (pendingAction.kind === "retract") {
-        completed = !!pendingAction.previousSelectedSlot &&
-          !currentLoadedSlotName &&
-          !!previousSlotState &&
-          !previousSlotState.selected;
-      } else if (pendingAction.kind === "switch") {
-        completed = !!targetSlotState &&
-          !!previousSlotState &&
-          targetSlotState.selected &&
-          !previousSlotState.selected &&
-          currentLoadedSlotName === pendingAction.targetSlot;
+        completed = !!previousSlotState && !previousSlotState.selected;
       } else {
-        completed = !pendingAction.previousSelectedSlot &&
-          !!targetSlotState &&
-          targetSlotState.selected &&
-          currentLoadedSlotName === pendingAction.targetSlot;
+        completed = !!targetSlotState && targetSlotState.selected;
       }
-      if (expired || completed) {
+      if (completed) {
         actionSlot = "";
         pendingAction = null;
       } else {
