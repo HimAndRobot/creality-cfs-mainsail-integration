@@ -74,8 +74,8 @@
       ".k1c-cfs-item.empty .k1c-cfs-channel,.k1c-cfs-item.empty .k1c-cfs-type,.k1c-cfs-item.empty .k1c-cfs-edit-inline{color:#7b7b7b}",
       ".k1c-cfs-item.empty .k1c-cfs-edit-inline:hover{background:transparent;color:#7b7b7b}",
       ".k1c-cfs-loaded-dot{position:absolute;top:6px;right:6px;width:7px;height:7px;border-radius:50%;background:#22c55e;box-shadow:0 0 5px #22c55e;z-index:2}",
-      ".k1c-cfs-loading-dot{position:absolute;top:4px;right:4px;width:11px;height:11px;border-radius:50%;border:2px solid rgba(255,255,255,.18);border-top-color:#60a5fa;animation:k1c-cfs-spin .8s linear infinite;z-index:2}",
-      "@keyframes k1c-cfs-spin{to{transform:rotate(360deg)}}",
+      ".k1c-cfs-loading-dot{position:absolute;top:4px;right:4px;width:11px;height:11px;border-radius:50%;background:#60a5fa;box-shadow:0 0 0 rgba(96,165,250,.45);animation:k1c-cfs-pulse 1s ease-in-out infinite;z-index:2}",
+      "@keyframes k1c-cfs-pulse{0%{transform:scale(.75);opacity:.65;box-shadow:0 0 0 0 rgba(96,165,250,.45)}70%{transform:scale(1);opacity:1;box-shadow:0 0 0 6px rgba(96,165,250,0)}100%{transform:scale(.75);opacity:.65;box-shadow:0 0 0 0 rgba(96,165,250,0)}}",
       ".k1c-cfs-main{display:flex;align-items:center;gap:12px;min-width:0}",
       ".k1c-cfs-spool{width:44px;height:44px;border-radius:50%;background:var(--spool-color,#94a3b8);display:flex;align-items:center;justify-content:center;position:relative;flex-shrink:0;box-shadow:inset 0 0 0 3px rgba(255,255,255,.15),inset 0 0 10px rgba(0,0,0,.6),0 0 8px rgba(0,0,0,.3)}",
       ".k1c-cfs-spool::after{content:'';width:12px;height:12px;border-radius:50%;background:#1c1c1c;box-shadow:inset 0 2px 4px rgba(0,0,0,.8)}",
@@ -684,6 +684,31 @@
       selectedSlot = active ? active.slot : (latestSlots[0] ? latestSlots[0].slot : "");
     }
 
+    const selectedSlotData = latestSlots.find(function (s) { return s.slot === selectedSlot; });
+    const currentLoadedSlot = latestSlots.find(function (s) { return s.selected; });
+    const currentLoadedSlotName = currentLoadedSlot ? currentLoadedSlot.slot : "";
+    const targetSlotState = pendingAction
+      ? latestSlots.find(function (s) { return s.slot === pendingAction.targetSlot; })
+      : null;
+    const previousSlotState = pendingAction && pendingAction.previousSelectedSlot
+      ? latestSlots.find(function (s) { return s.slot === pendingAction.previousSelectedSlot; })
+      : null;
+    let actionLocked = !!pendingAction;
+
+    if (pendingAction) {
+      let completed = false;
+      if (pendingAction.kind === "retract") {
+        completed = !!previousSlotState && !previousSlotState.selected;
+      } else {
+        completed = !!targetSlotState && targetSlotState.selected;
+      }
+      if (completed) {
+        actionSlot = "";
+        pendingAction = null;
+        actionLocked = false;
+      }
+    }
+
     gridEl.innerHTML = "";
 
     latestSlots.forEach(function (slot) {
@@ -729,7 +754,7 @@
       };
 
       item.appendChild(main);
-      const slotIsPending = !!pendingAction && (pendingAction.targetSlot === slot.slot || pendingAction.previousSelectedSlot === slot.slot);
+      const slotIsPending = actionLocked && !!pendingAction && (pendingAction.targetSlot === slot.slot || pendingAction.previousSelectedSlot === slot.slot);
       if (slotIsPending) {
         const spinner = document.createElement("div");
         spinner.className = "k1c-cfs-loading-dot";
@@ -744,39 +769,14 @@
       item.appendChild(edit);
       gridEl.appendChild(item);
     });
-
-    const selectedSlotData = latestSlots.find(function (s) { return s.slot === selectedSlot; });
-    const currentLoadedSlot = latestSlots.find(function (s) { return s.selected; });
-    const currentLoadedSlotName = currentLoadedSlot ? currentLoadedSlot.slot : "";
-    const targetSlotState = pendingAction
-      ? latestSlots.find(function (s) { return s.slot === pendingAction.targetSlot; })
-      : null;
-    const previousSlotState = pendingAction && pendingAction.previousSelectedSlot
-      ? latestSlots.find(function (s) { return s.slot === pendingAction.previousSelectedSlot; })
-      : null;
     const isLoaded = !!(selectedSlotData && selectedSlotData.selected);
     const isPresent = !!(selectedSlotData && selectedSlotData.present);
-    let hasPendingPrinterAction = false;
-    if (pendingAction) {
-      let completed = false;
-      if (pendingAction.kind === "retract") {
-        completed = !!previousSlotState && !previousSlotState.selected;
-      } else {
-        completed = !!targetSlotState && targetSlotState.selected;
-      }
-      if (completed) {
-        actionSlot = "";
-        pendingAction = null;
-      } else {
-        hasPendingPrinterAction = true;
-      }
-    }
     if (feedBtnEl) {
-      feedBtnEl.disabled = !!actionSlot || hasPendingPrinterAction || isLoaded || !isPresent;
+      feedBtnEl.disabled = actionLocked || !!actionSlot || isLoaded || !isPresent;
       var feedTextEl = feedBtnEl.querySelector("span");
       if (feedTextEl) feedTextEl.textContent = (isPresent && currentLoadedSlotName && !isLoaded) ? "Switch" : "Feed";
     }
-    if (retractBtnEl) retractBtnEl.disabled = !!actionSlot || hasPendingPrinterAction || !isPresent;
+    if (retractBtnEl) retractBtnEl.disabled = actionLocked || !!actionSlot || !isPresent;
 
     updateStatus(connected);
     updateHumidity(latestHumidity, latestTemp);

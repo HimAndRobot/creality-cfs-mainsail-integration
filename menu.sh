@@ -49,21 +49,10 @@ prompt_default() {
   fi
 }
 
-resolve_backend_origin() {
-  raw_host="$1"
-  raw_port="$2"
-  case "$raw_host" in
-    __BACK__) printf '__BACK__'; return 0 ;;
-  esac
-  case "$raw_port" in
-    __BACK__) printf '__BACK__'; return 0 ;;
-  esac
-  raw="$raw_host"
-  case "$raw" in
-    http://*|https://*) printf '%s' "$raw" ;;
-    *:*) printf 'http://%s' "$raw" ;;
-    *) printf 'http://%s:%s' "$raw" "$raw_port" ;;
-  esac
+pause_and_exit() {
+  printf '\nPress Enter to continue.'
+  read -r _ || true
+  exit 0
 }
 
 backup_once() {
@@ -84,50 +73,6 @@ remove_existing_block() {
     index($0, end) { skip = 0; next }
     !skip { print }
   ' "$src" > "$dst"
-}
-
-write_remote_injected_file() {
-  backend_origin="$1"
-  tmp_clean="/tmp/k1c-cfs-clean.$$"
-  tmp_out="/tmp/k1c-cfs-out.$$"
-  trap 'rm -f "$tmp_clean" "$tmp_out"' EXIT INT TERM
-
-  remove_existing_block "$TARGET_HTML" "$tmp_clean"
-
-  awk \
-    -v start="$INJECT_START" \
-    -v end="$INJECT_END" \
-    -v origin="$backend_origin" '
-      {
-        if (!inserted && index($0, "</head>")) {
-          print start
-          print "<script>"
-          print "window.K1C_CFS_URL = \"" origin "\";"
-          print "if (!window.__k1c_cfs_loader_loaded) {"
-          print "  window.__k1c_cfs_loader_loaded = true;"
-          print "  const script = document.createElement(\"script\");"
-          print "  script.src = window.K1C_CFS_URL + \"/static/mainsail-panel.js?ts=\" + Date.now();"
-          print "  document.head.appendChild(script);"
-          print "}"
-          print "</script>"
-          print end
-          inserted = 1
-        }
-        print
-      }
-      END {
-        if (!inserted) exit 7
-      }
-    ' "$tmp_clean" > "$tmp_out" || {
-      rm -f "$tmp_clean" "$tmp_out"
-      trap - EXIT INT TERM
-      die "Could not find </head> in $TARGET_HTML"
-    }
-
-  cp "$tmp_out" "$TARGET_HTML"
-  chmod 644 "$TARGET_HTML" || true
-  rm -f "$tmp_clean" "$tmp_out"
-  trap - EXIT INT TERM
 }
 
 write_local_injected_file() {
@@ -176,24 +121,6 @@ deploy_local_panel() {
   require_file "$PANEL_JS_SOURCE"
   cp "$PANEL_JS_SOURCE" "$PANEL_JS_TARGET"
   chmod 644 "$PANEL_JS_TARGET" || true
-}
-
-install_remote() {
-  require_file "$TARGET_HTML"
-  default_host="$(detect_host_ip)"
-  backend_host="$(prompt_default "Backend host or IP" "$default_host")"
-  [ "$backend_host" = "__BACK__" ] && return 0
-  backend_port="$(prompt_default "Backend port" "$DEFAULT_BACKEND_PORT")"
-  [ "$backend_port" = "__BACK__" ] && return 0
-  backend_origin="$(resolve_backend_origin "$backend_host" "$backend_port")"
-
-  backup_once
-  write_remote_injected_file "$backend_origin"
-
-  printf '\nInstalled injection.\n'
-  printf 'Target:  %s\n' "$TARGET_HTML"
-  printf 'Backup:  %s\n' "$BACKUP_HTML"
-  printf 'Backend: %s\n\n' "$backend_origin"
 }
 
 write_local_env() {
@@ -327,36 +254,8 @@ install_local() {
   printf 'Target:  %s\n' "$TARGET_HTML"
   printf 'Backup:  %s\n' "$BACKUP_HTML"
   printf 'Panel:   %s\n\n' "$PANEL_JS_TARGET"
-}
-
-install_menu() {
-  while :; do
-    printf '\n'
-    printf 'Install Mode\n'
-    printf '1. Run locally on this printer\n'
-    printf '2. Use another machine on the network\n'
-    printf 'B. Back\n'
-    printf '> '
-    read -r choice || return 0
-    case "$choice" in
-      '')
-        ;;
-      1)
-        install_local
-        return 0
-        ;;
-      2)
-        install_remote
-        return 0
-        ;;
-      b|B)
-        return 0
-        ;;
-      *)
-        printf '\nInvalid option.\n'
-        ;;
-    esac
-  done
+  printf 'Installation finished.\n'
+  pause_and_exit
 }
 
 remove_installation() {
@@ -375,6 +274,8 @@ remove_installation() {
   printf 'Target: %s\n' "$TARGET_HTML"
   printf 'Backup kept at: %s\n' "$BACKUP_HTML"
   printf 'Running processes were left untouched on purpose.\n\n'
+  printf 'Removal finished.\n'
+  pause_and_exit
 }
 
 show_menu() {
@@ -394,7 +295,7 @@ main() {
       '')
         ;;
       1)
-        install_menu
+        install_local
         ;;
       2)
         remove_installation
