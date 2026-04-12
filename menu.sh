@@ -8,6 +8,8 @@ DEFAULT_BACKEND_PORT="${CFS_HTTP_PORT:-8010}"
 INJECT_START="<!-- K1C_CFS_INJECT_START -->"
 INJECT_END="<!-- K1C_CFS_INJECT_END -->"
 INIT_SCRIPT="/etc/init.d/S59k1c_cfs_mini"
+PANEL_JS_SOURCE="${PANEL_JS_SOURCE:-$SCRIPT_DIR/static/mainsail-panel.js}"
+PANEL_JS_TARGET="${PANEL_JS_TARGET:-/usr/data/mainsail/k1c-cfs-panel.js}"
 
 die() {
   printf '%s\n' "$1" >&2
@@ -84,7 +86,7 @@ remove_existing_block() {
   ' "$src" > "$dst"
 }
 
-write_injected_file() {
+write_remote_injected_file() {
   backend_origin="$1"
   tmp_clean="/tmp/k1c-cfs-clean.$$"
   tmp_out="/tmp/k1c-cfs-out.$$"
@@ -128,6 +130,54 @@ write_injected_file() {
   trap - EXIT INT TERM
 }
 
+write_local_injected_file() {
+  tmp_clean="/tmp/k1c-cfs-clean.$$"
+  tmp_out="/tmp/k1c-cfs-out.$$"
+  trap 'rm -f "$tmp_clean" "$tmp_out"' EXIT INT TERM
+
+  remove_existing_block "$TARGET_HTML" "$tmp_clean"
+
+  awk \
+    -v start="$INJECT_START" \
+    -v end="$INJECT_END" '
+      {
+        if (!inserted && index($0, "</head>")) {
+          print start
+          print "<script>"
+          print "window.K1C_CFS_WS_URL = \"ws://\" + window.location.hostname + \":9999\";"
+          print "if (!window.__k1c_cfs_loader_loaded) {"
+          print "  window.__k1c_cfs_loader_loaded = true;"
+          print "  const script = document.createElement(\"script\");"
+          print "  script.src = \"/k1c-cfs-panel.js?ts=\" + Date.now();"
+          print "  document.head.appendChild(script);"
+          print "}"
+          print "</script>"
+          print end
+          inserted = 1
+        }
+        print
+      }
+      END {
+        if (!inserted) exit 7
+      }
+    ' "$tmp_clean" > "$tmp_out" || {
+      rm -f "$tmp_clean" "$tmp_out"
+      trap - EXIT INT TERM
+      die "Could not find </head> in $TARGET_HTML"
+    }
+
+  cp "$tmp_out" "$TARGET_HTML"
+  chmod 644 "$TARGET_HTML" || true
+  rm -f "$tmp_clean" "$tmp_out"
+  trap - EXIT INT TERM
+}
+
+deploy_local_panel() {
+  require_file "$PANEL_JS_SOURCE"
+  cp "$PANEL_JS_SOURCE" "$PANEL_JS_TARGET"
+  chmod 644 "$PANEL_JS_TARGET" || true
+}
+
 install_remote() {
   require_file "$TARGET_HTML"
   default_host="$(detect_host_ip)"
@@ -138,7 +188,7 @@ install_remote() {
   backend_origin="$(resolve_backend_origin "$backend_host" "$backend_port")"
 
   backup_once
-  write_injected_file "$backend_origin"
+  write_remote_injected_file "$backend_origin"
 
   printf '\nInstalled injection.\n'
   printf 'Target:  %s\n' "$TARGET_HTML"
@@ -266,28 +316,17 @@ remove_local_autostart() {
 
 install_local() {
   require_file "$TARGET_HTML"
-  local_host_ip="$(detect_host_ip)"
-  printf '\nInstalling local backend...\n'
-  printf 'Step 1: running install.sh\n'
-  CFS_WS_URL="ws://127.0.0.1:9999" \
-  CFS_HTTP_HOST="0.0.0.0" \
-  CFS_HTTP_PORT="$DEFAULT_BACKEND_PORT" \
-    sh "$SCRIPT_DIR/install.sh"
-  printf 'Step 2: writing local .env\n'
-  write_local_env
-  printf 'Step 3: creating backup\n'
+  printf '\nInstalling local panel...\n'
+  printf 'Step 1: creating backup\n'
   backup_once
-  printf 'Step 4: configuring autostart\n'
-  configure_local_autostart
-  printf 'Step 5: starting backend\n'
-  start_local_backend
-  printf 'Step 6: injecting Mainsail\n'
-  write_injected_file "http://$local_host_ip:$DEFAULT_BACKEND_PORT"
+  printf 'Step 2: copying panel script\n'
+  deploy_local_panel
+  printf 'Step 3: injecting Mainsail\n'
+  write_local_injected_file
   printf '\nInstalled local mode.\n'
   printf 'Target:  %s\n' "$TARGET_HTML"
   printf 'Backup:  %s\n' "$BACKUP_HTML"
-  printf 'Backend: http://%s:%s\n' "$local_host_ip" "$DEFAULT_BACKEND_PORT"
-  printf 'Log:     /tmp/k1c-cfs-mini.log\n\n'
+  printf 'Panel:   %s\n\n' "$PANEL_JS_TARGET"
 }
 
 install_menu() {
@@ -331,6 +370,7 @@ remove_installation() {
   printf 'Step 3: removing local files\n'
   rm -f "$SCRIPT_DIR/.env" "$SCRIPT_DIR/run-local.sh"
   rm -rf "$SCRIPT_DIR/.k1c-cfs-mini"
+  rm -f "$PANEL_JS_TARGET"
   printf '\nRemoved.\n'
   printf 'Target: %s\n' "$TARGET_HTML"
   printf 'Backup kept at: %s\n' "$BACKUP_HTML"

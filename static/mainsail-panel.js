@@ -4,16 +4,13 @@
   if (window.__k1c_cfs_panel_loaded) return;
   window.__k1c_cfs_panel_loaded = true;
 
-  const BASE = String(window.K1C_CFS_URL || "").replace(/\/$/, "");
-  if (!BASE) {
-    console.error("[K1C CFS] window.K1C_CFS_URL is not set.");
-    return;
-  }
-
   const POLL_MS = 3000;
+  const HEARTBEAT_MS = 10000;
   const RETRY_MS = 1200;
   const FLOAT_AFTER_MS = 20000;
   const ACTION_FALLBACK_MS = 90000;
+  const SLOT_LETTERS = ["A", "B", "C", "D"];
+  const WS_URL = String(window.K1C_CFS_WS_URL || ("ws://" + window.location.hostname + ":9999")).replace(/\/$/, "");
   const MATERIAL_TYPES = ["PLA", "PETG", "ABS", "ASA", "TPU", "PA", "PC", "OTHER"];
   const MATERIAL_PRESETS = {
     PLA: { vendor: "Generic", name: "Generic PLA", temp_min: "190", temp_max: "240" },
@@ -36,8 +33,11 @@
   let gridEl = null;
   let humidityLabelEl = null;
   let timer = null;
+  let heartbeatTimer = null;
   let observer = null;
   let floatTimer = null;
+  let ws = null;
+  let reconnectTimer = null;
   let latestSlots = [];
   let latestConnected = false;
   let latestHumidity = null;
@@ -132,6 +132,215 @@
     return raw || "#94a3b8";
   }
 
+  function normalizeColorHex(value) {
+    const rawValue = String(value || "").trim().toLowerCase();
+    if (!rawValue) return "";
+    let raw = rawValue;
+    if (raw.startsWith("0x")) raw = raw.slice(2);
+    if (raw.startsWith("#")) raw = raw.slice(1);
+    raw = raw.replace(/[^0-9a-f]/g, "");
+    if (!raw) return "";
+    if (raw.length === 7 && raw.charAt(0) === "0") raw = raw.slice(1);
+    else if (raw.length === 8) raw = raw.slice(2);
+    else if (raw.length > 8) raw = raw.slice(-6);
+    if (raw.length !== 6) return "";
+    return "#" + raw;
+  }
+
+  function printerColorValue(value) {
+    const color = normalizeColorHex(value);
+    if (!color) return "";
+    return "#0" + color.slice(1);
+  }
+
+  function normalizeTemperatureValue(value) {
+    if (value === null || value === undefined || value === "") return null;
+    const temp = Number(value);
+    if (!Number.isFinite(temp) || temp < 0) return null;
+    return Math.round(temp * 100) / 100;
+  }
+
+  function materialStatus(stateValue, present) {
+    if (!present || stateValue === 0) return "empty";
+    if (stateValue === 2) return "rfid";
+    if (stateValue === 1) return "manual";
+    return "loaded";
+  }
+
+  function emptySlot(label) {
+    return {
+      slot: label,
+      box_id: 1,
+      material_index: SLOT_LETTERS.indexOf(label.slice(-1)),
+      state: 0,
+      status: "empty",
+      present: false,
+      selected: false,
+      rfid: "",
+      type: "",
+      name: "",
+      vendor: "",
+      manufacturer: "",
+      color: "#d7dce4",
+      temp_min: null,
+      temp_max: null,
+      used_material_length: null,
+      raw: {},
+    };
+  }
+
+  function coerceTemperatureFields(material) {
+    let tempMin = material.minTemp;
+    let tempMax = material.maxTemp;
+    if (tempMin === undefined || tempMin === null) tempMin = material.nozzleTempMin;
+    if (tempMax === undefined || tempMax === null) tempMax = material.nozzleTempMax;
+    if (tempMin === undefined || tempMin === null) tempMin = material.minPrintTemp;
+    if (tempMax === undefined || tempMax === null) tempMax = material.maxPrintTemp;
+    return [tempMin, tempMax];
+  }
+
+  function extractSlots(payload) {
+    const defaults = {};
+    SLOT_LETTERS.forEach(function (letter) {
+      defaults["1" + letter] = emptySlot("1" + letter);
+    });
+
+    const boxsInfo = payload && payload.boxsInfo ? payload.boxsInfo : {};
+    const materialBoxes = Array.isArray(boxsInfo.materialBoxs) ? boxsInfo.materialBoxs : [];
+    const firstCfsBox = materialBoxes.find(function (box) {
+      return box && typeof box === "object" && box.type === 0;
+    });
+
+    if (!firstCfsBox || typeof firstCfsBox !== "object") {
+      return {
+        slots: SLOT_LETTERS.map(function (letter) { return defaults["1" + letter]; }),
+        humidity: null,
+        temp: null,
+      };
+    }
+
+    const boxId = Number.isInteger(firstCfsBox.id) ? firstCfsBox.id : 1;
+    (firstCfsBox.materials || []).forEach(function (material) {
+      if (!material || typeof material !== "object") return;
+      const materialIndex = material.id;
+      if (!Number.isInteger(materialIndex) || materialIndex < 0 || materialIndex > 3) return;
+      const label = String(boxId) + SLOT_LETTERS[materialIndex];
+      const rawState = Number(material.state || 0);
+      const name = String(material.name || "").trim();
+      const vendor = String(material.vendor || "").trim();
+      const materialType = String(material.type || "").trim().toUpperCase();
+      const rfid = String(material.rfid || "").trim();
+      const rfidMissing = ["", "0", "00", "000", "0000", "00000", "000000"].indexOf(rfid) >= 0;
+      const emptyManualSignature = rawState === 1 && rfidMissing && !name && !vendor &&
+        ["", "-", "OTHER", "N/A", "NA", "NONE"].indexOf(materialType) >= 0;
+      const stateValue = emptyManualSignature ? 0 : rawState;
+      const present = stateValue > 0;
+      const color = present ? normalizeColorHex(material.color) : "";
+      const temps = coerceTemperatureFields(material);
+      defaults[label] = {
+        slot: label,
+        box_id: boxId,
+        material_index: materialIndex,
+        state: stateValue,
+        status: materialStatus(stateValue, present),
+        present: present,
+        selected: Number(material.selected || 0) === 1,
+        rfid: rfid,
+        type: materialType,
+        name: name,
+        vendor: vendor,
+        manufacturer: String(material.vendor || "").trim(),
+        color: color || "#d7dce4",
+        temp_min: normalizeTemperatureValue(temps[0]),
+        temp_max: normalizeTemperatureValue(temps[1]),
+        used_material_length: normalizeTemperatureValue(material.usedMaterialLength),
+        raw: material,
+      };
+    });
+
+    return {
+      slots: SLOT_LETTERS.map(function (letter) {
+        return defaults[String(boxId) + letter] || defaults["1" + letter];
+      }),
+      humidity: boxsInfo.cfsHumidity,
+      temp: boxsInfo.cfsTemp,
+    };
+  }
+
+  function sendJson(payload) {
+    if (!ws || ws.readyState !== WebSocket.OPEN) return false;
+    ws.send(JSON.stringify(payload));
+    return true;
+  }
+
+  function requestBoxsInfo() {
+    return sendJson({ method: "get", params: { boxsInfo: 1 } });
+  }
+
+  function connectWs() {
+    if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return;
+    try {
+      ws = new WebSocket(WS_URL);
+    } catch (error) {
+      latestConnected = false;
+      render(latestSlots, latestConnected);
+      return;
+    }
+
+    ws.onopen = function () {
+      latestConnected = true;
+      sendJson({ ModeCode: "heart_beat" });
+      requestBoxsInfo();
+      render(latestSlots, latestConnected);
+    };
+
+    ws.onmessage = function (event) {
+      const message = event.data;
+      let parsed = null;
+      try {
+        parsed = JSON.parse(message);
+      } catch (error) {
+        parsed = null;
+      }
+
+      if (typeof message === "string" && message.indexOf("heart_beat") >= 0) {
+        if (ws && ws.readyState === WebSocket.OPEN) ws.send("ok");
+        return;
+      }
+      if (message === "ok") return;
+
+      if (parsed && typeof parsed === "object") {
+        if (Object.prototype.hasOwnProperty.call(parsed, "feedState")) {
+          latestFeedState = parsed.feedState;
+          latestFeedStateAt = Date.now();
+        }
+        if (Object.prototype.hasOwnProperty.call(parsed, "boxsInfo")) {
+          const extracted = extractSlots(parsed);
+          latestHumidity = extracted.humidity;
+          latestTemp = extracted.temp;
+          latestSlots = extracted.slots;
+          latestConnected = true;
+          render(latestSlots, latestConnected);
+        }
+      }
+    };
+
+    ws.onerror = function () {
+      latestConnected = false;
+      render(latestSlots, latestConnected);
+    };
+
+    ws.onclose = function () {
+      latestConnected = false;
+      render(latestSlots, latestConnected);
+      if (reconnectTimer) window.clearTimeout(reconnectTimer);
+      reconnectTimer = window.setTimeout(function () {
+        reconnectTimer = null;
+        connectWs();
+      }, RETRY_MS);
+    };
+  }
+
   function createField(labelText, inputEl) {
     const wrap = document.createElement("div");
     wrap.className = "k1c-cfs-field";
@@ -171,13 +380,18 @@
     actionSlot = slot.slot;
     if (buttonEl) buttonEl.disabled = true;
     try {
-      const response = await fetch(BASE + "/api/cfs/slot/" + encodeURIComponent(slot.slot) + "/action", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: action }),
-      });
-      if (!response.ok) throw new Error("HTTP " + response.status);
-      await poll();
+      const payload = {
+        method: "set",
+        params: {
+          feedInOrOut: {
+            boxId: slot.box_id || 1,
+            materialId: slot.material_index,
+            isFeed: action === "feed" ? 1 : 0,
+          },
+        },
+      };
+      if (!sendJson(payload)) throw new Error("WebSocket not connected");
+      window.setTimeout(requestBoxsInfo, 300);
     } catch (error) {
       window.alert("Failed to run " + action + " on " + slot.slot + ": " + (error.message || String(error)));
     } finally {
@@ -192,21 +406,26 @@
     saveButton.disabled = true;
     saveButton.textContent = "Saving";
     try {
-      const response = await fetch(BASE + "/api/cfs/slot/" + encodeURIComponent(slot.slot), {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          type: String(draft.type || "").trim().toUpperCase(),
-          vendor: String(draft.vendor || "").trim(),
-          name: String(draft.name || "").trim(),
-          temp_min: String(draft.temp_min || "").trim(),
-          temp_max: String(draft.temp_max || "").trim(),
-          color: String(draft.color || "").trim(),
-        }),
-      });
-      if (!response.ok) throw new Error("HTTP " + response.status);
+      const payload = {
+        method: "set",
+        params: {
+          modifyMaterial: {
+            boxId: slot.box_id || 1,
+            id: slot.material_index,
+            rfid: String((slot.raw && slot.raw.rfid) || slot.rfid || ""),
+            type: String(draft.type || "").trim().toUpperCase(),
+            vendor: String(draft.vendor || "").trim(),
+            name: String(draft.name || "").trim(),
+            color: printerColorValue(String(draft.color || "").trim()),
+            minTemp: normalizeTemperatureValue(draft.temp_min),
+            maxTemp: normalizeTemperatureValue(draft.temp_max),
+            pressure: String((slot.raw && slot.raw.pressure) || ""),
+          },
+        },
+      };
+      if (!sendJson(payload)) throw new Error("WebSocket not connected");
       closeModal();
-      await poll();
+      window.setTimeout(requestBoxsInfo, 350);
     } catch (error) {
       window.alert("Failed to save " + slot.slot + ": " + (error.message || String(error)));
     } finally {
@@ -539,31 +758,37 @@
     updateHumidity(latestHumidity, latestTemp);
   }
 
-  async function poll() {
-    try {
-      const response = await fetch(BASE + "/api/cfs", { cache: "no-store" });
-      if (!response.ok) throw new Error("HTTP " + response.status);
-      const data = await response.json();
-      latestHumidity = data.cfs_humidity;
-      latestTemp = data.cfs_temp;
-      latestFeedState = data.feed_state;
-      latestFeedStateAt = data.feed_state_at || 0;
-      render(Array.isArray(data.slots) ? data.slots : [], !!data.connected);
-    } catch (error) {
-      updateStatus(false);
-    }
+  function poll() {
+    if (latestConnected) requestBoxsInfo();
+    else connectWs();
   }
 
   function startPolling() {
     if (timer) return;
+    connectWs();
     poll();
     timer = window.setInterval(poll, POLL_MS);
+    heartbeatTimer = window.setInterval(function () {
+      if (latestConnected) sendJson({ ModeCode: "heart_beat" });
+    }, HEARTBEAT_MS);
   }
 
   function stopPolling() {
     if (!timer) return;
     window.clearInterval(timer);
     timer = null;
+    if (heartbeatTimer) {
+      window.clearInterval(heartbeatTimer);
+      heartbeatTimer = null;
+    }
+    if (reconnectTimer) {
+      window.clearTimeout(reconnectTimer);
+      reconnectTimer = null;
+    }
+    if (ws) {
+      try { ws.close(); } catch (error) {}
+      ws = null;
+    }
   }
 
   function ensurePanelCard() {
