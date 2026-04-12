@@ -2,6 +2,8 @@
 
 This project adds a simple CFS panel directly inside Mainsail on the Creality K1C.
 
+![CFS panel preview](static/preview.png)
+
 ## Requirements
 
 Before using this project, the printer must already have:
@@ -26,8 +28,6 @@ After installation, the panel appears inside:
 - `http://PRINTER_IP:4409/`
 
 If the page is already open, just refresh the browser once.
-
-![CFS panel preview](static/preview.png)
 
 ## Installation
 
