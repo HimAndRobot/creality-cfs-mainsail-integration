@@ -44,6 +44,7 @@
   let latestTemp = null;
   let latestFeedState = null;
   let latestFeedStateAt = 0;
+  let previousFeedState = null;
   let selectedSlot = "";
   let savingSlot = "";
   let actionSlot = "";
@@ -315,8 +316,12 @@
       if (parsed && typeof parsed === "object") {
         if (Object.prototype.hasOwnProperty.call(parsed, "feedState")) {
           console.log("[K1C CFS][ws] feedState:", parsed.feedState);
+          previousFeedState = latestFeedState;
           latestFeedState = parsed.feedState;
           latestFeedStateAt = Date.now();
+          if (!pendingAction && previousFeedState !== latestFeedState) {
+            startExternalActionFromFeedState(latestFeedState);
+          }
         }
         if (Object.prototype.hasOwnProperty.call(parsed, "boxsInfo")) {
           console.log("[K1C CFS][ws] boxsInfo:", parsed.boxsInfo);
@@ -366,6 +371,41 @@
     if (humidityLabelEl.parentElement) {
       const tempValue = temp === null || temp === undefined || temp === "" ? "--" : Math.round(Number(temp));
       humidityLabelEl.parentElement.title = "Humidity " + humidityValue + "% / Temp " + tempValue + "C";
+    }
+  }
+
+  function startExternalActionFromFeedState(feedState) {
+    if (pendingAction) return;
+    if (typeof feedState !== "number" || feedState <= 0) return;
+
+    const currentLoadedSlot = latestSlots.find(function (slot) { return slot.selected; });
+    const previousSelectedSlot = currentLoadedSlot ? currentLoadedSlot.slot : "";
+
+    if (feedState >= 111 && feedState <= 113) {
+      pendingAction = {
+        type: "retract",
+        kind: "retract",
+        targetSlot: "",
+        previousSelectedSlot: previousSelectedSlot,
+        startedAt: Date.now(),
+        source: "machine",
+      };
+      actionSlot = previousSelectedSlot || "__machine__";
+      render(latestSlots, latestConnected);
+      return;
+    }
+
+    if (feedState >= 102 && feedState <= 107) {
+      pendingAction = {
+        type: "feed",
+        kind: previousSelectedSlot ? "switch" : "feed",
+        targetSlot: "",
+        previousSelectedSlot: previousSelectedSlot,
+        startedAt: Date.now(),
+        source: "machine",
+      };
+      actionSlot = "__machine__";
+      render(latestSlots, latestConnected);
     }
   }
 
@@ -699,6 +739,13 @@
       let completed = false;
       if (pendingAction.kind === "retract") {
         completed = !!previousSlotState && !previousSlotState.selected;
+      } else if (!pendingAction.targetSlot && pendingAction.source === "machine") {
+        const anySelectedSlot = latestSlots.find(function (s) { return s.selected; });
+        if (pendingAction.previousSelectedSlot) {
+          completed = !!anySelectedSlot && anySelectedSlot.slot !== pendingAction.previousSelectedSlot;
+        } else {
+          completed = !!anySelectedSlot;
+        }
       } else {
         completed = !!targetSlotState && targetSlotState.selected;
       }
