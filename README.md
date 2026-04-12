@@ -27,6 +27,8 @@ After installation, the panel appears inside:
 
 If the page is already open, just refresh the browser once.
 
+![CFS panel preview](static/preview.png)
+
 ## Installation
 
 Clone the repository on the printer:
