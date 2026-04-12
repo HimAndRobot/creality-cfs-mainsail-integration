@@ -296,6 +296,7 @@
 
     ws.onmessage = function (event) {
       const message = event.data;
+      console.log("[K1C CFS][ws] recv:", message);
       let parsed = null;
       try {
         parsed = JSON.parse(message);
@@ -311,11 +312,14 @@
 
       if (parsed && typeof parsed === "object") {
         if (Object.prototype.hasOwnProperty.call(parsed, "feedState")) {
+          console.log("[K1C CFS][ws] feedState:", parsed.feedState);
           latestFeedState = parsed.feedState;
           latestFeedStateAt = Date.now();
         }
         if (Object.prototype.hasOwnProperty.call(parsed, "boxsInfo")) {
+          console.log("[K1C CFS][ws] boxsInfo:", parsed.boxsInfo);
           const extracted = extractSlots(parsed);
+          console.log("[K1C CFS][ws] extracted:", extracted);
           latestHumidity = extracted.humidity;
           latestTemp = extracted.temp;
           latestSlots = extracted.slots;
