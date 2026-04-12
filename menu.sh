@@ -1,6 +1,7 @@
 #!/bin/sh
 set -eu
 
+SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
 TARGET_HTML="${TARGET_HTML:-/usr/data/mainsail/index.html}"
 BACKUP_HTML="${BACKUP_HTML:-/usr/data/mainsail/index.html.k1c-cfs-mini.bak}"
 DEFAULT_BACKEND_PORT="${CFS_HTTP_PORT:-8010}"
@@ -126,7 +127,7 @@ write_injected_file() {
   trap - EXIT INT TERM
 }
 
-install_injection() {
+install_remote() {
   require_file "$TARGET_HTML"
   default_host="$(detect_host_ip)"
   backend_host="$(prompt_default "Backend host or IP" "$default_host")"
@@ -144,6 +145,109 @@ install_injection() {
   printf 'Backend: %s\n\n' "$backend_origin"
 }
 
+write_local_env() {
+  cat > "$SCRIPT_DIR/.env" <<EOF
+CFS_WS_URL=ws://127.0.0.1:9999
+CFS_HTTP_HOST=0.0.0.0
+CFS_HTTP_PORT=$DEFAULT_BACKEND_PORT
+EOF
+}
+
+is_backend_running() {
+  if command -v lsof >/dev/null 2>&1; then
+    lsof -i :"$DEFAULT_BACKEND_PORT" >/dev/null 2>&1
+    return $?
+  fi
+  if command -v ss >/dev/null 2>&1; then
+    ss -ltn 2>/dev/null | awk '{print $4}' | grep -q ":$DEFAULT_BACKEND_PORT\$"
+    return $?
+  fi
+  return 1
+}
+
+start_local_backend() {
+  if is_backend_running; then
+    printf 'Backend already listening on port %s.\n' "$DEFAULT_BACKEND_PORT"
+    return 0
+  fi
+  if [ ! -x "$SCRIPT_DIR/run-local.sh" ]; then
+    die "Missing launcher: $SCRIPT_DIR/run-local.sh"
+  fi
+  nohup "$SCRIPT_DIR/run-local.sh" >/tmp/k1c-cfs-mini.log 2>&1 &
+  sleep 2
+  if is_backend_running; then
+    printf 'Backend started in background.\n'
+  else
+    printf 'Backend start could not be confirmed. Check /tmp/k1c-cfs-mini.log\n'
+  fi
+}
+
+configure_local_autostart() {
+  if command -v systemctl >/dev/null 2>&1 && [ -d /etc/systemd/system ]; then
+    printf 'Autostart handled by systemd.\n'
+    return 0
+  fi
+  if command -v crontab >/dev/null 2>&1; then
+    tmp_cron="/tmp/k1c-cfs-mini-cron.$$"
+    crontab -l 2>/dev/null | grep -v 'k1c-cfs-mini autostart' > "$tmp_cron" || true
+    printf '@reboot %s/run-local.sh >/tmp/k1c-cfs-mini.log 2>&1 # k1c-cfs-mini autostart\n' "$SCRIPT_DIR" >> "$tmp_cron"
+    crontab "$tmp_cron"
+    rm -f "$tmp_cron"
+    printf 'Autostart configured in crontab.\n'
+    return 0
+  fi
+  printf 'Autostart was not configured automatically on this Linux.\n'
+}
+
+install_local() {
+  require_file "$TARGET_HTML"
+  printf '\nInstalling local backend...\n'
+  CFS_WS_URL="ws://127.0.0.1:9999" \
+  CFS_HTTP_HOST="0.0.0.0" \
+  CFS_HTTP_PORT="$DEFAULT_BACKEND_PORT" \
+    sh "$SCRIPT_DIR/install.sh"
+  write_local_env
+  configure_local_autostart
+  start_local_backend
+  backup_once
+  write_injected_file "http://127.0.0.1:$DEFAULT_BACKEND_PORT"
+  printf '\nInstalled local mode.\n'
+  printf 'Target:  %s\n' "$TARGET_HTML"
+  printf 'Backup:  %s\n' "$BACKUP_HTML"
+  printf 'Backend: http://127.0.0.1:%s\n' "$DEFAULT_BACKEND_PORT"
+  printf 'Log:     /tmp/k1c-cfs-mini.log\n\n'
+}
+
+install_menu() {
+  while :; do
+    printf '\n'
+    printf 'Install Mode\n'
+    printf '1. Run locally on this printer\n'
+    printf '2. Use another machine on the network\n'
+    printf 'B. Back\n'
+    printf '> '
+    read -r choice || return 0
+    case "$choice" in
+      '')
+        ;;
+      1)
+        install_local
+        return 0
+        ;;
+      2)
+        install_remote
+        return 0
+        ;;
+      b|B)
+        return 0
+        ;;
+      *)
+        printf '\nInvalid option.\n'
+        ;;
+    esac
+  done
+}
+
 restore_backup() {
   require_file "$BACKUP_HTML"
   cp "$BACKUP_HTML" "$TARGET_HTML"
@@ -156,7 +260,7 @@ restore_backup() {
 show_menu() {
   printf '\n'
   printf 'K1C CFS Mainsail Injection\n'
-  printf '1. Install injection\n'
+  printf '1. Install\n'
   printf '2. Restore backup\n'
   printf 'Q. Quit\n'
   printf '> '
@@ -167,8 +271,10 @@ main() {
     show_menu
     read -r choice || exit 0
     case "$choice" in
+      '')
+        ;;
       1)
-        install_injection
+        install_menu
         ;;
       2)
         restore_backup
