@@ -110,10 +110,10 @@
       ".k1c-cfs-action:disabled{opacity:.35;cursor:not-allowed}",
       ".k1c-cfs-action-loading{display:inline-flex;align-items:center;gap:8px}",
       ".k1c-cfs-action-loading-dot{width:9px;height:9px;border-radius:50%;background:#60a5fa;box-shadow:0 0 0 rgba(96,165,250,.45);animation:k1c-cfs-pulse 1s ease-in-out infinite;flex-shrink:0}",
-      "#" + MODAL_ID + "{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;padding:18px;background:rgba(0,0,0,.65);z-index:10001;backdrop-filter:blur(2px)}",
-      ".k1c-cfs-modal-card{width:min(520px,calc(100vw - 24px));background:#1a1a1e;color:#ececec;border:1px solid #333;border-radius:12px;padding:24px;display:flex;flex-direction:column;gap:24px;box-shadow:0 25px 50px -12px rgba(0,0,0,.9)}",
-      ".k1c-cfs-modal-head{display:flex;justify-content:space-between;align-items:center;gap:12px;padding-bottom:16px;border-bottom:1px solid #2a2a2a}",
-      ".k1c-cfs-modal-title{font-size:18px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#ececec}",
+      "#" + MODAL_ID + "{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;padding:24px;background:rgba(18,18,18,.72);z-index:10001}",
+      ".k1c-cfs-modal-card{width:min(680px,calc(100vw - 32px));background:#1e1e1e;color:#ececec;border:1px solid rgba(255,255,255,.08);border-radius:8px;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 24px 48px rgba(0,0,0,.45)}",
+      ".k1c-cfs-modal-head{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:18px 20px;border-bottom:1px solid rgba(255,255,255,.08);background:#1f1f1f}",
+      ".k1c-cfs-modal-title{font-size:16px;font-weight:600;color:#ececec}",
       ".k1c-cfs-color-wrap{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px}",
       ".k1c-cfs-color-avatar{width:80px;height:80px;border-radius:50%;position:relative;overflow:hidden;border:3px solid #2a2a2a;box-shadow:0 4px 15px rgba(0,0,0,.4),inset 0 0 10px rgba(0,0,0,.3);transition:transform .2s ease,border-color .2s ease}",
       ".k1c-cfs-color-avatar:hover{transform:scale(1.05);border-color:#555}",
@@ -122,21 +122,22 @@
       ".k1c-cfs-color-avatar:hover .k1c-cfs-color-overlay{opacity:1}",
       ".k1c-cfs-color-overlay svg{width:28px;height:28px;fill:#fff}",
       ".k1c-cfs-color-label{font-size:12px;color:#9e9e9e;font-weight:600;letter-spacing:.05em}",
-      ".k1c-cfs-edit-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}",
-      ".k1c-cfs-field{display:flex;flex-direction:column;gap:8px}",
-      ".k1c-cfs-field.wide{grid-column:span 2}",
-      ".k1c-cfs-field label{font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:#9e9e9e;font-weight:600}",
-      ".k1c-cfs-field select,.k1c-cfs-field input{width:100%;appearance:none;border:1px solid #2a2a2a;background:#121212;color:#ececec;border-radius:8px;padding:11px 13px;font-size:15px;outline:none}",
+      ".k1c-cfs-modal-body{display:flex;flex-direction:column;padding:0 20px 8px}",
+      ".k1c-cfs-edit-grid{display:flex;flex-direction:column;gap:0}",
+      ".k1c-cfs-field{display:grid;grid-template-columns:minmax(120px,180px) 1fr;align-items:center;gap:16px;padding:14px 0;border-bottom:1px solid rgba(255,255,255,.08)}",
+      ".k1c-cfs-field.wide{grid-template-columns:minmax(120px,180px) 1fr}",
+      ".k1c-cfs-field label{font-size:14px;color:#d0d0d0;font-weight:500}",
+      ".k1c-cfs-field select,.k1c-cfs-field input{width:100%;appearance:none;border:1px solid rgba(255,255,255,.08);background:#121212;color:#ececec;border-radius:6px;padding:10px 12px;font-size:14px;outline:none}",
       ".k1c-cfs-field select option{background:#121212;color:#ececec}",
-      ".k1c-cfs-field select:focus,.k1c-cfs-field input:focus{border-color:#555}",
-      ".k1c-cfs-modal-actions{display:flex;justify-content:flex-end;gap:12px;margin-top:4px;padding-top:16px;border-top:1px solid #2a2a2a}",
-      ".k1c-cfs-save-btn,.k1c-cfs-cancel-btn{appearance:none;border:1px solid #3a3a3a;background:transparent;color:#ececec;border-radius:8px;padding:8px 16px;font-size:14px;font-weight:600;cursor:pointer;transition:all .2s ease}",
-      ".k1c-cfs-save-btn:hover,.k1c-cfs-cancel-btn:hover{background:#2e2e2e;border-color:#555}",
-      ".k1c-cfs-save-btn{background:rgba(34,197,94,.08);border-color:rgba(34,197,94,.3);color:#86efac}",
-      ".k1c-cfs-save-btn:hover{background:rgba(34,197,94,.15);border-color:rgba(34,197,94,.5)}",
+      ".k1c-cfs-field select:focus,.k1c-cfs-field input:focus{border-color:#6b6b6b}",
+      ".k1c-cfs-modal-actions{display:flex;justify-content:flex-end;gap:12px;padding:16px 20px 18px;border-top:1px solid rgba(255,255,255,.08);background:#1f1f1f}",
+      ".k1c-cfs-save-btn,.k1c-cfs-cancel-btn{appearance:none;border:1px solid rgba(255,255,255,.08);background:#2b2b2b;color:#ececec;border-radius:6px;padding:8px 16px;font-size:14px;font-weight:500;cursor:pointer;transition:all .2s ease}",
+      ".k1c-cfs-save-btn:hover,.k1c-cfs-cancel-btn:hover{background:#343434;border-color:rgba(255,255,255,.16)}",
+      ".k1c-cfs-save-btn{background:#2d5f3d;border-color:#3a7a4f;color:#f5fff8}",
+      ".k1c-cfs-save-btn:hover{background:#367148;border-color:#4b9462}",
       "#" + FLOAT_ID + "{position:fixed;right:18px;bottom:18px;width:min(520px,calc(100vw - 24px));z-index:9999}",
       "#" + FLOAT_ID + " ." + CARD_ID + "-shell{box-shadow:0 20px 48px rgba(0,0,0,.36)}",
-      "@media (max-width:640px){.k1c-cfs-grid,.k1c-cfs-edit-grid{grid-template-columns:1fr}.k1c-cfs-controls-row{flex-direction:column}.k1c-cfs-field.wide{grid-column:span 1}}",
+      "@media (max-width:640px){.k1c-cfs-controls-row{flex-direction:column}.k1c-cfs-field,.k1c-cfs-field.wide{grid-template-columns:1fr;gap:10px}}",
     ].join("");
     document.head.appendChild(style);
   }
@@ -451,6 +452,19 @@
     return wrap;
   }
 
+  function isDashboardRoute() {
+    const path = String(window.location.pathname || "").replace(/\/+$/, "");
+    return !path || path === "/";
+  }
+
+  function unmountPanel() {
+    const card = document.getElementById(CARD_ID);
+    if (card) card.remove();
+    const floatWrap = document.getElementById(FLOAT_ID);
+    if (floatWrap) floatWrap.remove();
+    closeModal();
+  }
+
   function updateStatus() {}
 
   function updateHumidity(humidity, temp) {
@@ -590,6 +604,8 @@
 
     const card = document.createElement("div");
     card.className = "k1c-cfs-modal-card";
+    const body = document.createElement("div");
+    body.className = "k1c-cfs-modal-body";
 
     const head = document.createElement("div");
     head.className = "k1c-cfs-modal-head";
@@ -628,7 +644,8 @@
       grid.appendChild(createField(entry.type, input));
     });
 
-    card.appendChild(grid);
+    body.appendChild(grid);
+    card.appendChild(body);
 
     const actions = document.createElement("div");
     actions.className = "k1c-cfs-modal-actions";
@@ -702,6 +719,8 @@
     const card = document.createElement("div");
     card.className = "k1c-cfs-modal-card";
     modal.appendChild(card);
+    const body = document.createElement("div");
+    body.className = "k1c-cfs-modal-body";
 
     const head = document.createElement("div");
     head.className = "k1c-cfs-modal-head";
@@ -738,7 +757,7 @@
     colorLabel.textContent = "COLOR";
     colorWrap.appendChild(colorAvatar);
     colorWrap.appendChild(colorLabel);
-    card.appendChild(colorWrap);
+    body.appendChild(colorWrap);
 
     const select = document.createElement("select");
     MATERIAL_TYPES.forEach(function (material) {
@@ -819,7 +838,8 @@
     grid.appendChild(nameField);
     grid.appendChild(createField("Min Temp", tempMinInput));
     grid.appendChild(createField("Max Temp", tempMaxInput));
-    card.appendChild(grid);
+    body.appendChild(grid);
+    card.appendChild(body);
 
     const actions = document.createElement("div");
     actions.className = "k1c-cfs-modal-actions";
@@ -1163,6 +1183,10 @@
   }
 
   function mountInDashboard() {
+    if (!isDashboardRoute()) {
+      unmountPanel();
+      return false;
+    }
     const target = findDashboardColumn();
     if (!target || !target.column) return false;
     const card = ensurePanelCard();
@@ -1179,6 +1203,10 @@
   }
 
   function showFloatingFallback() {
+    if (!isDashboardRoute()) {
+      unmountPanel();
+      return;
+    }
     if (mountInDashboard()) return;
     let wrap = document.getElementById(FLOAT_ID);
     const card = ensurePanelCard();
@@ -1195,6 +1223,10 @@
   }
 
   function ensureMounted() {
+    if (!isDashboardRoute()) {
+      unmountPanel();
+      return false;
+    }
     return mountInDashboard();
   }
 
