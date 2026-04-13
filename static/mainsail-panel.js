@@ -51,7 +51,6 @@
   let pendingAction = null;
   let feedBtnEl = null;
   let retractBtnEl = null;
-  let testBtnEl = null;
 
   if (!document.getElementById(STYLE_ID)) {
     const style = document.createElement("style");
@@ -87,7 +86,7 @@
       ".k1c-cfs-edit-inline{background:transparent;border:1px solid transparent;color:#9e9e9e;width:36px;height:36px;border-radius:6px;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .2s ease}",
       ".k1c-cfs-edit-inline:hover{background:#3a3a3a;color:#ececec}",
       ".k1c-cfs-edit-inline svg,.k1c-cfs-action svg{width:18px;height:18px;fill:currentColor}",
-      ".k1c-cfs-controls{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;padding-top:12px;border-top:1px solid #3a3a3a}",
+      ".k1c-cfs-controls{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding-top:12px;border-top:1px solid #3a3a3a}",
       ".k1c-cfs-action{background:#2a2a2a;color:#ececec;border:1px solid #3a3a3a;padding:12px 14px;border-radius:8px;font-size:13px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;transition:all .2s ease}",
       ".k1c-cfs-action:hover:not(:disabled){background:#333;border-color:#555}",
       ".k1c-cfs-action:disabled{opacity:.35;cursor:not-allowed}",
@@ -510,6 +509,12 @@
         },
       };
       if (!sendJson(payload)) throw new Error("WebSocket not connected");
+      if (draft.material_db_id && draft.temp_max !== null && draft.temp_max !== undefined && draft.temp_max !== "") {
+        await runKlipperCommand(
+          "CFS_SET_MATERIAL_DB_TEMP ID=" + String(draft.material_db_id).trim() +
+          " TEMP=" + String(draft.temp_max).trim()
+        );
+      }
       closeModal();
       window.setTimeout(requestBoxsInfo, 350);
     } catch (error) {
@@ -692,25 +697,6 @@
     };
     feedBtnEl = feedBtn;
 
-    const testBtn = document.createElement("button");
-    testBtn.type = "button";
-    testBtn.className = "k1c-cfs-action";
-    testBtn.appendChild(createSvgPath("M9 3h6v2H9V3zm3 4c-3.9 0-7 3.1-7 7 0 2.4 1.2 4.6 3.2 5.9l1.1-1.7C7.9 17.3 7 15.7 7 14c0-2.8 2.2-5 5-5s5 2.2 5 5c0 1.7-.9 3.3-2.3 4.2l1.1 1.7C17.8 18.6 19 16.4 19 14c0-3.9-3.1-7-7-7zm-1 3v5l4.2 2.5 1-1.7-3.2-1.8V10h-2z"));
-    const testText = document.createElement("span");
-    testText.textContent = "Test";
-    testBtn.appendChild(testText);
-    testBtn.onclick = async function () {
-      testBtn.disabled = true;
-      try {
-        await runKlipperCommand("CFS_DEBUG_PING VALUE=panel");
-      } catch (error) {
-        window.alert("Failed to run test command: " + (error.message || String(error)));
-      } finally {
-        testBtn.disabled = false;
-      }
-    };
-    testBtnEl = testBtn;
-
     const retractBtn = document.createElement("button");
     retractBtn.type = "button";
     retractBtn.className = "k1c-cfs-action";
@@ -727,7 +713,6 @@
     retractBtnEl = retractBtn;
 
     controls.appendChild(feedBtn);
-    controls.appendChild(testBtn);
     controls.appendChild(retractBtn);
     shell.appendChild(controls);
     return root;
@@ -893,7 +878,6 @@
         }
       }
     }
-    if (testBtnEl) testBtnEl.disabled = actionLocked;
     if (retractBtnEl) retractBtnEl.disabled = actionLocked || !!actionSlot || !isPresent;
 
     updateStatus(connected);
