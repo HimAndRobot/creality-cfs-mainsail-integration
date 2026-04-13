@@ -847,8 +847,8 @@
     retractBtnEl = retractBtn;
 
     controls.appendChild(feedBtn);
-    controls.appendChild(configBtn);
     controls.appendChild(retractBtn);
+    controls.appendChild(configBtn);
     shell.appendChild(controls);
     return root;
   }
