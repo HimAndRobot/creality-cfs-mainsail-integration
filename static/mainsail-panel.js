@@ -625,13 +625,27 @@
     }
 
     const purgeMaterials = [
-      { type: "PLA", id: "00001" },
-      { type: "PETG", id: "00003" },
-      { type: "ABS", id: "00004" },
-      { type: "TPU", id: "00005" },
-      { type: "ASA", id: "00007" },
-      { type: "PA", id: "00008" },
-      { type: "PC", id: "00021" },
+      { type: "PLA", id: "00001", commandKey: "PLA", statusKey: "pla", presetKey: "PLA" },
+      { type: "PLA-Silk", id: "00002", commandKey: "PLA_SILK", statusKey: "pla_silk", presetKey: "PLA-SILK" },
+      { type: "PETG", id: "00003", commandKey: "PETG", statusKey: "petg", presetKey: "PETG" },
+      { type: "ABS", id: "00004", commandKey: "ABS", statusKey: "abs", presetKey: "ABS" },
+      { type: "TPU", id: "00005", commandKey: "TPU", statusKey: "tpu", presetKey: "TPU" },
+      { type: "PLA-CF", id: "00006", commandKey: "PLA_CF", statusKey: "pla_cf", presetKey: "PLA-CF" },
+      { type: "ASA", id: "00007", commandKey: "ASA", statusKey: "asa", presetKey: "ASA" },
+      { type: "PA", id: "00008", commandKey: "PA", statusKey: "pa", presetKey: "PA" },
+      { type: "PA-CF", id: "00009", commandKey: "PA_CF", statusKey: "pa_cf", presetKey: "PA-CF" },
+      { type: "BVOH", id: "00010", commandKey: "BVOH", statusKey: "bvoh", presetKey: "BVOH" },
+      { type: "PVA", id: "00011", commandKey: "PVA", statusKey: "pva", presetKey: "PVA" },
+      { type: "HIPS", id: "00012", commandKey: "HIPS", statusKey: "hips", presetKey: "HIPS" },
+      { type: "PET-CF", id: "00013", commandKey: "PET_CF", statusKey: "pet_cf", presetKey: "PET-CF" },
+      { type: "PETG-CF", id: "00014", commandKey: "PETG_CF", statusKey: "petg_cf", presetKey: "PETG-CF" },
+      { type: "PA6-CF", id: "00015", commandKey: "PA6_CF", statusKey: "pa6_cf", presetKey: "PA6-CF" },
+      { type: "PAHT-CF", id: "00016", commandKey: "PAHT_CF", statusKey: "paht_cf", presetKey: "PAHT-CF" },
+      { type: "PPS", id: "00017", commandKey: "PPS", statusKey: "pps", presetKey: "PPS" },
+      { type: "PPS-CF", id: "00018", commandKey: "PPS_CF", statusKey: "pps_cf", presetKey: "PPS-CF" },
+      { type: "PP", id: "00019", commandKey: "PP", statusKey: "pp", presetKey: "PP" },
+      { type: "PET", id: "00020", commandKey: "PET", statusKey: "pet", presetKey: "PET" },
+      { type: "PC", id: "00021", commandKey: "PC", statusKey: "pc", presetKey: "PC" },
     ];
 
     const grid = document.createElement("div");
@@ -663,13 +677,16 @@
       save.disabled = true;
       save.textContent = "Saving";
       try {
+        var commandParts = ["CFS_SET_MATERIAL_DB_TEMPS"];
         for (var i = 0; i < purgeMaterials.length; i += 1) {
           var entry = purgeMaterials[i];
           var value = String((purgeInputs[entry.type] && purgeInputs[entry.type].value) || "").trim();
           if (!value) continue;
-          await runKlipperCommand("CFS_SET_MATERIAL_DB_TEMP ID=" + entry.id + " TEMP=" + value);
-          if (MATERIAL_PRESETS[entry.type]) MATERIAL_PRESETS[entry.type].temp_max = value;
+          commandParts.push(entry.commandKey + "=" + value);
+          if (MATERIAL_PRESETS[entry.presetKey]) MATERIAL_PRESETS[entry.presetKey].temp_max = value;
         }
+        if (commandParts.length === 1) throw new Error("No values to save");
+        await runKlipperCommand(commandParts.join(" "));
         closeModal();
       } catch (error) {
         window.alert("Failed to save material config: " + (error.message || String(error)));
@@ -694,18 +711,17 @@
       const status = data && data.result && data.result.status && data.result.status.cfs_material_db;
       const temps = status && status.purge_temps ? status.purge_temps : {};
       purgeMaterials.forEach(function (entry) {
-        var key = String(entry.type || "").toLowerCase();
         var input = purgeInputs[entry.type];
         if (!input) return;
-        input.value = temps[key] == null
-          ? String((MATERIAL_PRESETS[entry.type] && MATERIAL_PRESETS[entry.type].temp_max) || "")
-          : String(temps[key]);
+        input.value = temps[entry.statusKey] == null
+          ? String((MATERIAL_PRESETS[entry.presetKey] && MATERIAL_PRESETS[entry.presetKey].temp_max) || "")
+          : String(temps[entry.statusKey]);
       });
     } catch (error) {
       purgeMaterials.forEach(function (entry) {
         var input = purgeInputs[entry.type];
         if (!input) return;
-        input.value = String((MATERIAL_PRESETS[entry.type] && MATERIAL_PRESETS[entry.type].temp_max) || "");
+        input.value = String((MATERIAL_PRESETS[entry.presetKey] && MATERIAL_PRESETS[entry.presetKey].temp_max) || "");
       });
     }
   }
