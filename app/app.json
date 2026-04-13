@@ -3,6 +3,7 @@
     "name": "K1C CFS Editor",
     "slug": "k1c-cfs-editor",
     "version": "0.1.0",
+    "icon": "../static/icon.png",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
     "assetBundlePatterns": [
@@ -16,13 +17,21 @@
       }
     },
     "android": {
+      "usesCleartextTraffic": true,
       "permissions": [
-        "CAMERA",
-        "READ_MEDIA_IMAGES",
         "CAMERA",
         "READ_MEDIA_IMAGES"
       ],
+      "adaptiveIcon": {
+        "foregroundImage": "../static/icon.png",
+        "backgroundColor": "#131313"
+      },
       "package": "com.anonymous.k1ccfseditor"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "8574fa12-62ca-45c6-83c2-c016606b7b62"
+      }
     }
   }
 }
