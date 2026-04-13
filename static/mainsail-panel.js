@@ -316,6 +316,17 @@
     return response.json().catch(function () { return null; });
   }
 
+  async function queryKlipperObject(query) {
+    const response = await fetch("/printer/objects/query?" + String(query || ""), {
+      method: "GET",
+      credentials: "same-origin",
+    });
+    if (!response.ok) {
+      throw new Error("HTTP " + response.status);
+    }
+    return response.json();
+  }
+
   function requestBoxsInfo() {
     return sendJson({ method: "get", params: { boxsInfo: 1 } });
   }
@@ -536,12 +547,9 @@
     head.className = "k1c-cfs-modal-head";
     const title = document.createElement("div");
     title.className = "k1c-cfs-modal-title";
-    title.textContent = "Material Config";
+    title.textContent = "Purge Config";
     head.appendChild(title);
     card.appendChild(head);
-
-    const pla = MATERIAL_PRESETS.PLA;
-    const petg = MATERIAL_PRESETS.PETG;
 
     function tempInput(value) {
       const input = document.createElement("input");
@@ -555,28 +563,19 @@
     const grid = document.createElement("div");
     grid.className = "k1c-cfs-edit-grid";
 
-    const plaMinInput = tempInput(pla.temp_min);
-    const plaMaxInput = tempInput(pla.temp_max);
-    const petgMinInput = tempInput(petg.temp_min);
-    const petgMaxInput = tempInput(petg.temp_max);
+    const plaTempInput = tempInput("");
+    const petgTempInput = tempInput("");
 
-    const plaLabel = document.createElement("div");
-    plaLabel.className = "k1c-cfs-field wide";
-    const plaText = document.createElement("label");
-    plaText.textContent = "PLA";
-    plaLabel.appendChild(plaText);
-    grid.appendChild(plaLabel);
-    grid.appendChild(createField("PLA Min Temp", plaMinInput));
-    grid.appendChild(createField("PLA Max Temp", plaMaxInput));
-
-    const petgLabel = document.createElement("div");
-    petgLabel.className = "k1c-cfs-field wide";
-    const petgText = document.createElement("label");
-    petgText.textContent = "PETG";
-    petgLabel.appendChild(petgText);
-    grid.appendChild(petgLabel);
-    grid.appendChild(createField("PETG Min Temp", petgMinInput));
-    grid.appendChild(createField("PETG Max Temp", petgMaxInput));
+    grid.appendChild(createField("PLA", plaTempInput));
+    grid.appendChild(createField("Temperature", petgTempInput)); // placeholder, replaced below
+    grid.lastChild.querySelector("label").textContent = "PETG";
+    grid.firstChild.nextSibling.querySelector("label").textContent = "Temperature";
+    grid.firstChild.querySelector("label").textContent = "PLA";
+    grid.firstChild.nextSibling.remove();
+    grid.appendChild(createField("Temperature", plaTempInput));
+    grid.appendChild(createField("PETG", petgTempInput));
+    grid.appendChild(createField("Temperature", petgTempInput));
+    while (grid.children.length > 4) grid.removeChild(grid.children[0]);
 
     card.appendChild(grid);
 
@@ -596,12 +595,10 @@
       save.disabled = true;
       save.textContent = "Saving";
       try {
-        await runKlipperCommand("CFS_SET_MATERIAL_DB_TEMP ID=00001 TEMP=" + String(plaMaxInput.value || "").trim());
-        await runKlipperCommand("CFS_SET_MATERIAL_DB_TEMP ID=00003 TEMP=" + String(petgMaxInput.value || "").trim());
-        MATERIAL_PRESETS.PLA.temp_min = String(plaMinInput.value || "").trim();
-        MATERIAL_PRESETS.PLA.temp_max = String(plaMaxInput.value || "").trim();
-        MATERIAL_PRESETS.PETG.temp_min = String(petgMinInput.value || "").trim();
-        MATERIAL_PRESETS.PETG.temp_max = String(petgMaxInput.value || "").trim();
+        await runKlipperCommand("CFS_SET_MATERIAL_DB_TEMP ID=00001 TEMP=" + String(plaTempInput.value || "").trim());
+        await runKlipperCommand("CFS_SET_MATERIAL_DB_TEMP ID=00003 TEMP=" + String(petgTempInput.value || "").trim());
+        MATERIAL_PRESETS.PLA.temp_max = String(plaTempInput.value || "").trim();
+        MATERIAL_PRESETS.PETG.temp_max = String(petgTempInput.value || "").trim();
         closeModal();
       } catch (error) {
         window.alert("Failed to save material config: " + (error.message || String(error)));
@@ -620,6 +617,17 @@
       if (event.target === modal) closeModal();
     });
     document.body.appendChild(modal);
+
+    try {
+      const data = await queryKlipperObject("cfs_material_db=purge_temps");
+      const status = data && data.result && data.result.status && data.result.status.cfs_material_db;
+      const temps = status && status.purge_temps ? status.purge_temps : {};
+      plaTempInput.value = temps.pla == null ? String(MATERIAL_PRESETS.PLA.temp_max || "") : String(temps.pla);
+      petgTempInput.value = temps.petg == null ? String(MATERIAL_PRESETS.PETG.temp_max || "") : String(temps.petg);
+    } catch (error) {
+      plaTempInput.value = String(MATERIAL_PRESETS.PLA.temp_max || "");
+      petgTempInput.value = String(MATERIAL_PRESETS.PETG.temp_max || "");
+    }
   }
 
   function openEditModal(slot) {
