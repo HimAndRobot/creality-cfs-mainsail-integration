@@ -88,11 +88,11 @@
       ".k1c-cfs-edit-inline:hover{background:#3a3a3a;color:#ececec}",
       ".k1c-cfs-edit-inline svg,.k1c-cfs-action svg{width:18px;height:18px;fill:currentColor}",
       ".k1c-cfs-controls{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding-top:12px;border-top:1px solid #3a3a3a}",
-      ".k1c-cfs-controls.with-config{grid-template-columns:1fr 88px 1fr}",
+      ".k1c-cfs-controls.with-config{grid-template-columns:1fr 1fr}",
       ".k1c-cfs-action{background:#2a2a2a;color:#ececec;border:1px solid #3a3a3a;padding:12px 14px;border-radius:8px;font-size:13px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;transition:all .2s ease}",
       ".k1c-cfs-action:hover:not(:disabled){background:#333;border-color:#555}",
       ".k1c-cfs-action:disabled{opacity:.35;cursor:not-allowed}",
-      ".k1c-cfs-action.icon-only{padding:12px 10px}",
+      ".k1c-cfs-action.full-row{grid-column:1 / -1}",
       ".k1c-cfs-action-loading{display:inline-flex;align-items:center;gap:8px}",
       ".k1c-cfs-action-loading-dot{width:9px;height:9px;border-radius:50%;background:#60a5fa;box-shadow:0 0 0 rgba(96,165,250,.45);animation:k1c-cfs-pulse 1s ease-in-out infinite;flex-shrink:0}",
       "#" + MODAL_ID + "{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;padding:18px;background:rgba(0,0,0,.65);z-index:10001;backdrop-filter:blur(2px)}",
@@ -522,7 +522,6 @@
           },
         },
       };
-      console.log("[K1C CFS][saveSlot] payload", JSON.stringify(payload));
       if (!sendJson(payload)) throw new Error("WebSocket not connected");
       closeModal();
       window.setTimeout(requestBoxsInfo, 350);
@@ -715,12 +714,14 @@
     tempMinInput.min = "0";
     tempMinInput.step = "1";
     tempMinInput.value = slot.temp_min == null ? "" : String(slot.temp_min);
+    tempMinInput.disabled = true;
 
     const tempMaxInput = document.createElement("input");
     tempMaxInput.type = "number";
     tempMaxInput.min = "0";
     tempMaxInput.step = "1";
     tempMaxInput.value = slot.temp_max == null ? "" : String(slot.temp_max);
+    tempMaxInput.disabled = true;
 
     let materialDbId = String(slot.material_db_id || inferMaterialDbId(slot.type, slot.vendor, slot.name) || "");
 
@@ -819,8 +820,11 @@
 
     const configBtn = document.createElement("button");
     configBtn.type = "button";
-    configBtn.className = "k1c-cfs-action icon-only";
+    configBtn.className = "k1c-cfs-action full-row";
     configBtn.appendChild(createSvgPath("M19.4 13a7.8 7.8 0 0 0 .1-1 7.8 7.8 0 0 0-.1-1l2.1-1.6-2-3.4-2.5 1a7.2 7.2 0 0 0-1.7-1l-.4-2.7h-4l-.4 2.7a7.2 7.2 0 0 0-1.7 1l-2.5-1-2 3.4L4.6 11a7.8 7.8 0 0 0-.1 1 7.8 7.8 0 0 0 .1 1l-2.1 1.6 2 3.4 2.5-1a7.2 7.2 0 0 0 1.7 1l.4 2.7h4l.4-2.7a7.2 7.2 0 0 0 1.7-1l2.5 1 2-3.4-2.1-1.6zM12 15.5A3.5 3.5 0 1 1 12 8a3.5 3.5 0 0 1 0 7.5z"));
+    const configText = document.createElement("span");
+    configText.textContent = "Purge Settings";
+    configBtn.appendChild(configText);
     configBtn.title = "Config";
     configBtn.onclick = function () {
       openMaterialConfigModal();
