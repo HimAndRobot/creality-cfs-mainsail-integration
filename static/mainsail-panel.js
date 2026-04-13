@@ -27,6 +27,8 @@
     "PET-CF": { db_id: "00013", rfid: "00020", vendor: "Generic", name: "Generic PET-CF", temp_min: "280", temp_max: "320", pressure: "0.02" },
     "PETG-CF": { db_id: "00014", rfid: "00003", vendor: "Generic", name: "Generic PETG-CF", temp_min: "240", temp_max: "260", pressure: "0.02" },
     "PLA-CF": { db_id: "00006", rfid: "00001", vendor: "Generic", name: "Generic PLA-CF", temp_min: "190", temp_max: "240", pressure: "0.03" },
+    "PA6-CF": { db_id: "00015", rfid: "", vendor: "Generic", name: "Generic PA6-CF", temp_min: "280", temp_max: "300", pressure: "0.02" },
+    "PAHT-CF": { db_id: "00016", rfid: "", vendor: "Generic", name: "Generic PAHT-CF", temp_min: "300", temp_max: "320", pressure: "0.02" },
     PP: { db_id: "00019", rfid: "00006", vendor: "Generic", name: "Generic PP", temp_min: "220", temp_max: "260", pressure: "0.02" },
     PPS: { db_id: "00017", rfid: "00019", vendor: "Generic", name: "Generic PPS", temp_min: "320", temp_max: "350", pressure: "0.02" },
     "PPS-CF": { db_id: "00018", rfid: "00017", vendor: "Generic", name: "Generic PPS-CF", temp_min: "300", temp_max: "350", pressure: "0.02" },
@@ -625,27 +627,27 @@
     }
 
     const purgeMaterials = [
-      { type: "PLA", id: "00001", commandKey: "PLA", statusKey: "pla", presetKey: "PLA" },
-      { type: "PLA-Silk", id: "00002", commandKey: "PLA_SILK", statusKey: "pla_silk", presetKey: "PLA-SILK" },
-      { type: "PETG", id: "00003", commandKey: "PETG", statusKey: "petg", presetKey: "PETG" },
-      { type: "ABS", id: "00004", commandKey: "ABS", statusKey: "abs", presetKey: "ABS" },
-      { type: "TPU", id: "00005", commandKey: "TPU", statusKey: "tpu", presetKey: "TPU" },
-      { type: "PLA-CF", id: "00006", commandKey: "PLA_CF", statusKey: "pla_cf", presetKey: "PLA-CF" },
-      { type: "ASA", id: "00007", commandKey: "ASA", statusKey: "asa", presetKey: "ASA" },
-      { type: "PA", id: "00008", commandKey: "PA", statusKey: "pa", presetKey: "PA" },
-      { type: "PA-CF", id: "00009", commandKey: "PA_CF", statusKey: "pa_cf", presetKey: "PA-CF" },
-      { type: "BVOH", id: "00010", commandKey: "BVOH", statusKey: "bvoh", presetKey: "BVOH" },
-      { type: "PVA", id: "00011", commandKey: "PVA", statusKey: "pva", presetKey: "PVA" },
-      { type: "HIPS", id: "00012", commandKey: "HIPS", statusKey: "hips", presetKey: "HIPS" },
-      { type: "PET-CF", id: "00013", commandKey: "PET_CF", statusKey: "pet_cf", presetKey: "PET-CF" },
-      { type: "PETG-CF", id: "00014", commandKey: "PETG_CF", statusKey: "petg_cf", presetKey: "PETG-CF" },
-      { type: "PA6-CF", id: "00015", commandKey: "PA6_CF", statusKey: "pa6_cf", presetKey: "PA6-CF" },
-      { type: "PAHT-CF", id: "00016", commandKey: "PAHT_CF", statusKey: "paht_cf", presetKey: "PAHT-CF" },
-      { type: "PPS", id: "00017", commandKey: "PPS", statusKey: "pps", presetKey: "PPS" },
-      { type: "PPS-CF", id: "00018", commandKey: "PPS_CF", statusKey: "pps_cf", presetKey: "PPS-CF" },
-      { type: "PP", id: "00019", commandKey: "PP", statusKey: "pp", presetKey: "PP" },
-      { type: "PET", id: "00020", commandKey: "PET", statusKey: "pet", presetKey: "PET" },
-      { type: "PC", id: "00021", commandKey: "PC", statusKey: "pc", presetKey: "PC" },
+      { type: "PLA", id: "00001", commandKey: "PLA", statusKey: "pla" },
+      { type: "PLA-Silk", id: "00002", commandKey: "PLA_SILK", statusKey: "pla_silk" },
+      { type: "PETG", id: "00003", commandKey: "PETG", statusKey: "petg" },
+      { type: "ABS", id: "00004", commandKey: "ABS", statusKey: "abs" },
+      { type: "TPU", id: "00005", commandKey: "TPU", statusKey: "tpu" },
+      { type: "PLA-CF", id: "00006", commandKey: "PLA_CF", statusKey: "pla_cf" },
+      { type: "ASA", id: "00007", commandKey: "ASA", statusKey: "asa" },
+      { type: "PA", id: "00008", commandKey: "PA", statusKey: "pa" },
+      { type: "PA-CF", id: "00009", commandKey: "PA_CF", statusKey: "pa_cf" },
+      { type: "BVOH", id: "00010", commandKey: "BVOH", statusKey: "bvoh" },
+      { type: "PVA", id: "00011", commandKey: "PVA", statusKey: "pva" },
+      { type: "HIPS", id: "00012", commandKey: "HIPS", statusKey: "hips" },
+      { type: "PET-CF", id: "00013", commandKey: "PET_CF", statusKey: "pet_cf" },
+      { type: "PETG-CF", id: "00014", commandKey: "PETG_CF", statusKey: "petg_cf" },
+      { type: "PA6-CF", id: "00015", commandKey: "PA6_CF", statusKey: "pa6_cf" },
+      { type: "PAHT-CF", id: "00016", commandKey: "PAHT_CF", statusKey: "paht_cf" },
+      { type: "PPS", id: "00017", commandKey: "PPS", statusKey: "pps" },
+      { type: "PPS-CF", id: "00018", commandKey: "PPS_CF", statusKey: "pps_cf" },
+      { type: "PP", id: "00019", commandKey: "PP", statusKey: "pp" },
+      { type: "PET", id: "00020", commandKey: "PET", statusKey: "pet" },
+      { type: "PC", id: "00021", commandKey: "PC", statusKey: "pc" },
     ];
 
     const grid = document.createElement("div");
@@ -683,7 +685,6 @@
           var value = String((purgeInputs[entry.type] && purgeInputs[entry.type].value) || "").trim();
           if (!value) continue;
           commandParts.push(entry.commandKey + "=" + value);
-          if (MATERIAL_PRESETS[entry.presetKey]) MATERIAL_PRESETS[entry.presetKey].temp_max = value;
         }
         if (commandParts.length === 1) throw new Error("No values to save");
         await runKlipperCommand(commandParts.join(" "));
@@ -713,16 +714,11 @@
       purgeMaterials.forEach(function (entry) {
         var input = purgeInputs[entry.type];
         if (!input) return;
-        input.value = temps[entry.statusKey] == null
-          ? String((MATERIAL_PRESETS[entry.presetKey] && MATERIAL_PRESETS[entry.presetKey].temp_max) || "")
-          : String(temps[entry.statusKey]);
+        input.value = temps[entry.statusKey] == null ? "" : String(temps[entry.statusKey]);
       });
     } catch (error) {
-      purgeMaterials.forEach(function (entry) {
-        var input = purgeInputs[entry.type];
-        if (!input) return;
-        input.value = String((MATERIAL_PRESETS[entry.presetKey] && MATERIAL_PRESETS[entry.presetKey].temp_max) || "");
-      });
+      closeModal();
+      window.alert("Failed to load material config: " + (error.message || String(error)));
     }
   }
 
