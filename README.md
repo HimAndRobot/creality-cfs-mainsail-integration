@@ -4,6 +4,8 @@ This project adds a simple CFS panel directly inside Mainsail on the Creality K1
 
 ![CFS panel preview](static/preview.png)
 
+It also includes a mobile app for editing CFS filaments and spool colors.
+
 ## Requirements
 
 Before using this project, the printer must already have:
@@ -18,6 +20,7 @@ With it, you can:
 - edit filament information
 - start `Feed`, `Switch`, and `Retract` directly from the panel
 - follow printer-side actions with button lock and loading indicators
+- use the mobile app to register printers, edit filaments, and capture spool colors
 
 ## How It Works
 
@@ -67,3 +70,27 @@ Then:
 
 - The panel is loaded directly inside Mainsail
 - If you do not see the panel after install or remove, refresh the browser
+
+## Mobile App
+
+The repository also includes an Expo app in:
+
+- `app/`
+
+With the app, you can:
+
+- add multiple printers by name and IP
+- connect directly to the printer WebSocket
+- view CFS slots in real time
+- edit filament information
+- choose a color manually or capture it with the camera
+
+To run it:
+
+```sh
+cd app
+npm install
+npm start
+```
+
+Then open it in Expo Go on your phone.

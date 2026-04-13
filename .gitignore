@@ -1,6 +1,14 @@
 __pycache__/
 *.pyc
 .k1c-cfs-mini/
+.DS_Store
+static/.DS_Store
+app/.DS_Store
+app/node_modules/
+app/.expo/
+app/.env
+app/android/
+app/ios/
 
 .claude/worktrees/
 

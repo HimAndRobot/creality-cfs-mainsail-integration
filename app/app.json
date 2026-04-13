@@ -1,0 +1,28 @@
+{
+  "expo": {
+    "name": "K1C CFS Editor",
+    "slug": "k1c-cfs-editor",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSCameraUsageDescription": "Use the camera to capture spool color.",
+        "NSPhotoLibraryUsageDescription": "Use the photo library to extract spool color."
+      }
+    },
+    "android": {
+      "permissions": [
+        "CAMERA",
+        "READ_MEDIA_IMAGES",
+        "CAMERA",
+        "READ_MEDIA_IMAGES"
+      ],
+      "package": "com.anonymous.k1ccfseditor"
+    }
+  }
+}
