@@ -13,14 +13,14 @@
   const WS_URL = String(window.K1C_CFS_WS_URL || ("ws://" + window.location.hostname + ":9999")).replace(/\/$/, "");
   const MATERIAL_TYPES = ["PLA", "PETG", "ABS", "ASA", "TPU", "PA", "PC", "OTHER"];
   const MATERIAL_PRESETS = {
-    PLA: { vendor: "Generic", name: "Generic PLA", temp_min: "190", temp_max: "240" },
-    PETG: { vendor: "Generic", name: "Generic PETG", temp_min: "220", temp_max: "260" },
-    ABS: { vendor: "Generic", name: "Generic ABS", temp_min: "230", temp_max: "260" },
-    ASA: { vendor: "Generic", name: "Generic ASA", temp_min: "240", temp_max: "270" },
-    TPU: { vendor: "Generic", name: "Generic TPU", temp_min: "210", temp_max: "240" },
-    PA: { vendor: "Generic", name: "Generic PA", temp_min: "240", temp_max: "280" },
-    PC: { vendor: "Generic", name: "Generic PC", temp_min: "260", temp_max: "300" },
-    OTHER: { vendor: "Generic", name: "Generic Material", temp_min: "200", temp_max: "240" },
+    PLA: { db_id: "00001", vendor: "Generic", name: "Generic PLA", temp_min: "190", temp_max: "240" },
+    PETG: { db_id: "00003", vendor: "Generic", name: "Generic PETG", temp_min: "220", temp_max: "260" },
+    ABS: { db_id: "", vendor: "Generic", name: "Generic ABS", temp_min: "230", temp_max: "260" },
+    ASA: { db_id: "", vendor: "Generic", name: "Generic ASA", temp_min: "240", temp_max: "270" },
+    TPU: { db_id: "", vendor: "Generic", name: "Generic TPU", temp_min: "210", temp_max: "240" },
+    PA: { db_id: "", vendor: "Generic", name: "Generic PA", temp_min: "240", temp_max: "280" },
+    PC: { db_id: "", vendor: "Generic", name: "Generic PC", temp_min: "260", temp_max: "300" },
+    OTHER: { db_id: "", vendor: "Generic", name: "Generic Material", temp_min: "200", temp_max: "240" },
   };
 
   const CARD_ID = "k1c-cfs-card";
@@ -51,6 +51,7 @@
   let pendingAction = null;
   let feedBtnEl = null;
   let retractBtnEl = null;
+  let testBtnEl = null;
 
   if (!document.getElementById(STYLE_ID)) {
     const style = document.createElement("style");
@@ -86,7 +87,7 @@
       ".k1c-cfs-edit-inline{background:transparent;border:1px solid transparent;color:#9e9e9e;width:36px;height:36px;border-radius:6px;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .2s ease}",
       ".k1c-cfs-edit-inline:hover{background:#3a3a3a;color:#ececec}",
       ".k1c-cfs-edit-inline svg,.k1c-cfs-action svg{width:18px;height:18px;fill:currentColor}",
-      ".k1c-cfs-controls{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding-top:12px;border-top:1px solid #3a3a3a}",
+      ".k1c-cfs-controls{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;padding-top:12px;border-top:1px solid #3a3a3a}",
       ".k1c-cfs-action{background:#2a2a2a;color:#ececec;border:1px solid #3a3a3a;padding:12px 14px;border-radius:8px;font-size:13px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;transition:all .2s ease}",
       ".k1c-cfs-action:hover:not(:disabled){background:#333;border-color:#555}",
       ".k1c-cfs-action:disabled{opacity:.35;cursor:not-allowed}",
@@ -165,6 +166,26 @@
     return Math.round(temp * 100) / 100;
   }
 
+  function normalizePresetKey(type, vendor, name) {
+    return [
+      String(type || "").trim().toUpperCase(),
+      String(vendor || "").trim().toLowerCase(),
+      String(name || "").trim().toLowerCase(),
+    ].join("|");
+  }
+
+  function inferMaterialDbId(type, vendor, name) {
+    const key = normalizePresetKey(type, vendor, name);
+    let matchedId = "";
+    Object.keys(MATERIAL_PRESETS).some(function (presetType) {
+      const preset = MATERIAL_PRESETS[presetType];
+      if (normalizePresetKey(presetType, preset.vendor, preset.name) !== key) return false;
+      matchedId = String(preset.db_id || "");
+      return true;
+    });
+    return matchedId;
+  }
+
   function materialStatus(stateValue, present) {
     if (!present || stateValue === 0) return "empty";
     if (stateValue === 2) return "rfid";
@@ -186,6 +207,7 @@
       name: "",
       vendor: "",
       manufacturer: "",
+      material_db_id: "",
       color: "#d7dce4",
       temp_min: null,
       temp_max: null,
@@ -255,6 +277,7 @@
         name: name,
         vendor: vendor,
         manufacturer: String(material.vendor || "").trim(),
+        material_db_id: inferMaterialDbId(materialType, vendor, name),
         color: color || "#d7dce4",
         temp_min: normalizeTemperatureValue(temps[0]),
         temp_max: normalizeTemperatureValue(temps[1]),
@@ -276,6 +299,19 @@
     if (!ws || ws.readyState !== WebSocket.OPEN) return false;
     ws.send(JSON.stringify(payload));
     return true;
+  }
+
+  async function runKlipperCommand(script) {
+    const response = await fetch("/printer/gcode/script", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ script: String(script || "").trim() }),
+      credentials: "same-origin",
+    });
+    if (!response.ok) {
+      throw new Error("HTTP " + response.status);
+    }
+    return response.json().catch(function () { return null; });
   }
 
   function requestBoxsInfo() {
@@ -561,9 +597,12 @@
     tempMaxInput.step = "1";
     tempMaxInput.value = slot.temp_max == null ? "" : String(slot.temp_max);
 
+    let materialDbId = String(slot.material_db_id || inferMaterialDbId(slot.type, slot.vendor, slot.name) || "");
+
     function applyPreset(materialType) {
       const preset = MATERIAL_PRESETS[materialType];
       if (!preset) return;
+      materialDbId = String(preset.db_id || "");
       vendorInput.value = preset.vendor;
       nameInput.value = preset.name;
       tempMinInput.value = preset.temp_min;
@@ -600,6 +639,7 @@
       saveSlot(
         slot,
         {
+          material_db_id: materialDbId || inferMaterialDbId(select.value, vendorInput.value, nameInput.value),
           type: select.value,
           vendor: vendorInput.value,
           name: nameInput.value,
@@ -652,6 +692,25 @@
     };
     feedBtnEl = feedBtn;
 
+    const testBtn = document.createElement("button");
+    testBtn.type = "button";
+    testBtn.className = "k1c-cfs-action";
+    testBtn.appendChild(createSvgPath("M9 3h6v2H9V3zm3 4c-3.9 0-7 3.1-7 7 0 2.4 1.2 4.6 3.2 5.9l1.1-1.7C7.9 17.3 7 15.7 7 14c0-2.8 2.2-5 5-5s5 2.2 5 5c0 1.7-.9 3.3-2.3 4.2l1.1 1.7C17.8 18.6 19 16.4 19 14c0-3.9-3.1-7-7-7zm-1 3v5l4.2 2.5 1-1.7-3.2-1.8V10h-2z"));
+    const testText = document.createElement("span");
+    testText.textContent = "Test";
+    testBtn.appendChild(testText);
+    testBtn.onclick = async function () {
+      testBtn.disabled = true;
+      try {
+        await runKlipperCommand("CFS_DEBUG_PING VALUE=panel");
+      } catch (error) {
+        window.alert("Failed to run test command: " + (error.message || String(error)));
+      } finally {
+        testBtn.disabled = false;
+      }
+    };
+    testBtnEl = testBtn;
+
     const retractBtn = document.createElement("button");
     retractBtn.type = "button";
     retractBtn.className = "k1c-cfs-action";
@@ -668,6 +727,7 @@
     retractBtnEl = retractBtn;
 
     controls.appendChild(feedBtn);
+    controls.appendChild(testBtn);
     controls.appendChild(retractBtn);
     shell.appendChild(controls);
     return root;
@@ -833,6 +893,7 @@
         }
       }
     }
+    if (testBtnEl) testBtnEl.disabled = actionLocked;
     if (retractBtnEl) retractBtnEl.disabled = actionLocked || !!actionSlot || !isPresent;
 
     updateStatus(connected);

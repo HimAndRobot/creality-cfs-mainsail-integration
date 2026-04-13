@@ -311,6 +311,7 @@ function AppContent() {
   const [pickerTarget, setPickerTarget] = useState({ x: 0.5, y: 0.5 });
   const [pickerPreviewColor, setPickerPreviewColor] = useState("#d1d5db");
   const wsRef = useRef(null);
+  const wsSessionRef = useRef(0);
   const pendingActionRef = useRef(null);
   const latestFeedStateRef = useRef(null);
   const slotsRef = useRef(defaultSlots());
@@ -381,7 +382,13 @@ function AppContent() {
   useEffect(() => {
     const subscription = AppState.addEventListener("change", (nextState) => {
       if (nextState === "active") {
-        setReconnectNonce((value) => value + 1);
+        const ws = wsRef.current;
+        if (!ws || ws.readyState === WebSocket.CLOSED || ws.readyState === WebSocket.CLOSING) {
+          setReconnectNonce((value) => value + 1);
+        } else if (ws.readyState === WebSocket.OPEN) {
+          setStatus("Connected");
+          requestBoxInfo();
+        }
       }
     });
     return () => subscription.remove();
@@ -445,13 +452,17 @@ function AppContent() {
     }
 
     setStatus("Connecting");
+    const sessionId = wsSessionRef.current + 1;
+    wsSessionRef.current = sessionId;
     const ws = new WebSocket(`ws://${activePrinter.host}:9999`);
     wsRef.current = ws;
     let pollTimer = null;
     let heartbeatTimer = null;
     let reconnectTimer = null;
+    let disposed = false;
 
     ws.onopen = () => {
+      if (disposed || wsSessionRef.current !== sessionId) return;
       setStatus("Connected");
       ws.send(JSON.stringify({ ModeCode: "heart_beat" }));
       ws.send(JSON.stringify({ method: "get", params: { boxsInfo: 1 } }));
@@ -468,6 +479,7 @@ function AppContent() {
     };
 
     ws.onmessage = (event) => {
+      if (disposed || wsSessionRef.current !== sessionId) return;
       const message = event.data;
       if (typeof message === "string" && message.includes("heart_beat")) {
         if (ws.readyState === WebSocket.OPEN) ws.send("ok");
@@ -495,8 +507,12 @@ function AppContent() {
       } catch (_) {}
     };
 
-    ws.onerror = () => setStatus("Error");
+    ws.onerror = () => {
+      if (disposed || wsSessionRef.current !== sessionId) return;
+      setStatus("Error");
+    };
     ws.onclose = () => {
+      if (disposed || wsSessionRef.current !== sessionId) return;
       setStatus("Disconnected");
       reconnectTimer = setTimeout(() => {
         setReconnectNonce((value) => value + 1);
@@ -504,11 +520,14 @@ function AppContent() {
     };
 
     return () => {
+      disposed = true;
       if (pollTimer) clearInterval(pollTimer);
       if (heartbeatTimer) clearInterval(heartbeatTimer);
       if (reconnectTimer) clearTimeout(reconnectTimer);
       try { ws.close(); } catch (_) {}
-      wsRef.current = null;
+      if (wsRef.current === ws) {
+        wsRef.current = null;
+      }
     };
   }, [activePrinter, reconnectNonce]);
 
