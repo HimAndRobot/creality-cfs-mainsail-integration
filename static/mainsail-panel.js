@@ -51,6 +51,7 @@
   let pendingAction = null;
   let feedBtnEl = null;
   let retractBtnEl = null;
+  let configBtnEl = null;
 
   if (!document.getElementById(STYLE_ID)) {
     const style = document.createElement("style");
@@ -87,9 +88,11 @@
       ".k1c-cfs-edit-inline:hover{background:#3a3a3a;color:#ececec}",
       ".k1c-cfs-edit-inline svg,.k1c-cfs-action svg{width:18px;height:18px;fill:currentColor}",
       ".k1c-cfs-controls{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding-top:12px;border-top:1px solid #3a3a3a}",
+      ".k1c-cfs-controls.with-config{grid-template-columns:1fr 88px 1fr}",
       ".k1c-cfs-action{background:#2a2a2a;color:#ececec;border:1px solid #3a3a3a;padding:12px 14px;border-radius:8px;font-size:13px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;transition:all .2s ease}",
       ".k1c-cfs-action:hover:not(:disabled){background:#333;border-color:#555}",
       ".k1c-cfs-action:disabled{opacity:.35;cursor:not-allowed}",
+      ".k1c-cfs-action.icon-only{padding:12px 10px}",
       ".k1c-cfs-action-loading{display:inline-flex;align-items:center;gap:8px}",
       ".k1c-cfs-action-loading-dot{width:9px;height:9px;border-radius:50%;background:#60a5fa;box-shadow:0 0 0 rgba(96,165,250,.45);animation:k1c-cfs-pulse 1s ease-in-out infinite;flex-shrink:0}",
       "#" + MODAL_ID + "{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;padding:18px;background:rgba(0,0,0,.65);z-index:10001;backdrop-filter:blur(2px)}",
@@ -509,12 +512,6 @@
         },
       };
       if (!sendJson(payload)) throw new Error("WebSocket not connected");
-      if (draft.material_db_id && draft.temp_max !== null && draft.temp_max !== undefined && draft.temp_max !== "") {
-        await runKlipperCommand(
-          "CFS_SET_MATERIAL_DB_TEMP ID=" + String(draft.material_db_id).trim() +
-          " TEMP=" + String(draft.temp_max).trim()
-        );
-      }
       closeModal();
       window.setTimeout(requestBoxsInfo, 350);
     } catch (error) {
@@ -524,6 +521,105 @@
       saveButton.disabled = false;
       saveButton.textContent = "Save";
     }
+  }
+
+  async function openMaterialConfigModal() {
+    closeModal();
+
+    const modal = document.createElement("div");
+    modal.id = MODAL_ID;
+
+    const card = document.createElement("div");
+    card.className = "k1c-cfs-modal-card";
+
+    const head = document.createElement("div");
+    head.className = "k1c-cfs-modal-head";
+    const title = document.createElement("div");
+    title.className = "k1c-cfs-modal-title";
+    title.textContent = "Material Config";
+    head.appendChild(title);
+    card.appendChild(head);
+
+    const pla = MATERIAL_PRESETS.PLA;
+    const petg = MATERIAL_PRESETS.PETG;
+
+    function tempInput(value) {
+      const input = document.createElement("input");
+      input.type = "number";
+      input.min = "0";
+      input.step = "1";
+      input.value = value == null ? "" : String(value);
+      return input;
+    }
+
+    const grid = document.createElement("div");
+    grid.className = "k1c-cfs-edit-grid";
+
+    const plaMinInput = tempInput(pla.temp_min);
+    const plaMaxInput = tempInput(pla.temp_max);
+    const petgMinInput = tempInput(petg.temp_min);
+    const petgMaxInput = tempInput(petg.temp_max);
+
+    const plaLabel = document.createElement("div");
+    plaLabel.className = "k1c-cfs-field wide";
+    const plaText = document.createElement("label");
+    plaText.textContent = "PLA";
+    plaLabel.appendChild(plaText);
+    grid.appendChild(plaLabel);
+    grid.appendChild(createField("PLA Min Temp", plaMinInput));
+    grid.appendChild(createField("PLA Max Temp", plaMaxInput));
+
+    const petgLabel = document.createElement("div");
+    petgLabel.className = "k1c-cfs-field wide";
+    const petgText = document.createElement("label");
+    petgText.textContent = "PETG";
+    petgLabel.appendChild(petgText);
+    grid.appendChild(petgLabel);
+    grid.appendChild(createField("PETG Min Temp", petgMinInput));
+    grid.appendChild(createField("PETG Max Temp", petgMaxInput));
+
+    card.appendChild(grid);
+
+    const actions = document.createElement("div");
+    actions.className = "k1c-cfs-modal-actions";
+    const cancel = document.createElement("button");
+    cancel.type = "button";
+    cancel.className = "k1c-cfs-cancel-btn";
+    cancel.textContent = "Cancel";
+    cancel.onclick = closeModal;
+
+    const save = document.createElement("button");
+    save.type = "button";
+    save.className = "k1c-cfs-save-btn";
+    save.textContent = "Save";
+    save.onclick = async function () {
+      save.disabled = true;
+      save.textContent = "Saving";
+      try {
+        await runKlipperCommand("CFS_SET_MATERIAL_DB_TEMP ID=00001 TEMP=" + String(plaMaxInput.value || "").trim());
+        await runKlipperCommand("CFS_SET_MATERIAL_DB_TEMP ID=00003 TEMP=" + String(petgMaxInput.value || "").trim());
+        MATERIAL_PRESETS.PLA.temp_min = String(plaMinInput.value || "").trim();
+        MATERIAL_PRESETS.PLA.temp_max = String(plaMaxInput.value || "").trim();
+        MATERIAL_PRESETS.PETG.temp_min = String(petgMinInput.value || "").trim();
+        MATERIAL_PRESETS.PETG.temp_max = String(petgMaxInput.value || "").trim();
+        closeModal();
+      } catch (error) {
+        window.alert("Failed to save material config: " + (error.message || String(error)));
+      } finally {
+        save.disabled = false;
+        save.textContent = "Save";
+      }
+    };
+
+    actions.appendChild(cancel);
+    actions.appendChild(save);
+    card.appendChild(actions);
+
+    modal.appendChild(card);
+    modal.addEventListener("click", function (event) {
+      if (event.target === modal) closeModal();
+    });
+    document.body.appendChild(modal);
   }
 
   function openEditModal(slot) {
@@ -679,7 +775,7 @@
     shell.appendChild(gridEl);
 
     const controls = document.createElement("div");
-    controls.className = "k1c-cfs-controls";
+    controls.className = "k1c-cfs-controls with-config";
 
     const feedBtn = document.createElement("button");
     feedBtn.type = "button";
@@ -697,6 +793,16 @@
     };
     feedBtnEl = feedBtn;
 
+    const configBtn = document.createElement("button");
+    configBtn.type = "button";
+    configBtn.className = "k1c-cfs-action icon-only";
+    configBtn.appendChild(createSvgPath("M19.4 13a7.8 7.8 0 0 0 .1-1 7.8 7.8 0 0 0-.1-1l2.1-1.6-2-3.4-2.5 1a7.2 7.2 0 0 0-1.7-1l-.4-2.7h-4l-.4 2.7a7.2 7.2 0 0 0-1.7 1l-2.5-1-2 3.4L4.6 11a7.8 7.8 0 0 0-.1 1 7.8 7.8 0 0 0 .1 1l-2.1 1.6 2 3.4 2.5-1a7.2 7.2 0 0 0 1.7 1l.4 2.7h4l.4-2.7a7.2 7.2 0 0 0 1.7-1l2.5 1 2-3.4-2.1-1.6zM12 15.5A3.5 3.5 0 1 1 12 8a3.5 3.5 0 0 1 0 7.5z"));
+    configBtn.title = "Config";
+    configBtn.onclick = function () {
+      openMaterialConfigModal();
+    };
+    configBtnEl = configBtn;
+
     const retractBtn = document.createElement("button");
     retractBtn.type = "button";
     retractBtn.className = "k1c-cfs-action";
@@ -713,6 +819,7 @@
     retractBtnEl = retractBtn;
 
     controls.appendChild(feedBtn);
+    controls.appendChild(configBtn);
     controls.appendChild(retractBtn);
     shell.appendChild(controls);
     return root;
@@ -878,6 +985,7 @@
         }
       }
     }
+    if (configBtnEl) configBtnEl.disabled = actionLocked;
     if (retractBtnEl) retractBtnEl.disabled = actionLocked || !!actionSlot || !isPresent;
 
     updateStatus(connected);
