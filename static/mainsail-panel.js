@@ -11,16 +11,31 @@
   const ACTION_FALLBACK_MS = 90000;
   const SLOT_LETTERS = ["A", "B", "C", "D"];
   const WS_URL = String(window.K1C_CFS_WS_URL || ("ws://" + window.location.hostname + ":9999")).replace(/\/$/, "");
-  const MATERIAL_TYPES = ["PLA", "PETG", "ABS", "ASA", "TPU", "PA", "PC", "OTHER"];
+  const MATERIAL_TYPES = ["PLA", "PETG", "ABS", "ASA", "BVOH", "HIPS", "PA", "PA-CF", "PC", "PET", "PET-CF", "PETG-CF", "PLA-CF", "PP", "PPS", "PPS-CF", "PVA", "TPU", "OTHER"];
   const MATERIAL_PRESETS = {
-    PLA: { db_id: "00001", vendor: "Generic", name: "Generic PLA", temp_min: "190", temp_max: "240" },
-    PETG: { db_id: "00003", vendor: "Generic", name: "Generic PETG", temp_min: "220", temp_max: "260" },
-    ABS: { db_id: "", vendor: "Generic", name: "Generic ABS", temp_min: "230", temp_max: "260" },
-    ASA: { db_id: "", vendor: "Generic", name: "Generic ASA", temp_min: "240", temp_max: "270" },
-    TPU: { db_id: "", vendor: "Generic", name: "Generic TPU", temp_min: "210", temp_max: "240" },
-    PA: { db_id: "", vendor: "Generic", name: "Generic PA", temp_min: "240", temp_max: "280" },
-    PC: { db_id: "", vendor: "Generic", name: "Generic PC", temp_min: "260", temp_max: "300" },
-    OTHER: { db_id: "", vendor: "Generic", name: "Generic Material", temp_min: "200", temp_max: "240" },
+    PLA: { db_id: "00001", rfid: "00001", vendor: "Generic", name: "Generic PLA", temp_min: "190", temp_max: "240", pressure: "0.04" },
+    "PLA-SILK": { db_id: "00002", rfid: "00005", vendor: "Generic", name: "Generic PLA-Silk", temp_min: "190", temp_max: "240", pressure: "0.052" },
+    PETG: { db_id: "00003", rfid: "00013", vendor: "Generic", name: "Generic PETG", temp_min: "220", temp_max: "270", pressure: "0.08" },
+    ABS: { db_id: "00004", rfid: "00003", vendor: "Generic", name: "Generic ABS", temp_min: "240", temp_max: "280", pressure: "0.06" },
+    ASA: { db_id: "00007", rfid: "00004", vendor: "Generic", name: "Generic ASA", temp_min: "240", temp_max: "280", pressure: "0.044" },
+    BVOH: { db_id: "00010", rfid: "00007", vendor: "Generic", name: "Generic BVOH", temp_min: "200", temp_max: "220", pressure: "0.02" },
+    HIPS: { db_id: "00012", rfid: "00010", vendor: "Generic", name: "Generic HIPS", temp_min: "220", temp_max: "250", pressure: "0.02" },
+    PA: { db_id: "00008", rfid: "00012", vendor: "Generic", name: "Generic PA", temp_min: "240", temp_max: "260", pressure: "0.01" },
+    "PA-CF": { db_id: "00009", rfid: "00008", vendor: "Generic", name: "Generic PA-CF", temp_min: "260", temp_max: "300", pressure: "0.01" },
+    PC: { db_id: "00021", rfid: "00009", vendor: "Generic", name: "Generic PC", temp_min: "250", temp_max: "270", pressure: "0.05" },
+    PET: { db_id: "00020", rfid: "00021", vendor: "Generic", name: "Generic PET", temp_min: "250", temp_max: "270", pressure: "0.02" },
+    "PET-CF": { db_id: "00013", rfid: "00020", vendor: "Generic", name: "Generic PET-CF", temp_min: "280", temp_max: "320", pressure: "0.02" },
+    "PETG-CF": { db_id: "00014", rfid: "00003", vendor: "Generic", name: "Generic PETG-CF", temp_min: "240", temp_max: "260", pressure: "0.02" },
+    "PLA-CF": { db_id: "00006", rfid: "00001", vendor: "Generic", name: "Generic PLA-CF", temp_min: "190", temp_max: "240", pressure: "0.03" },
+    PP: { db_id: "00019", rfid: "00006", vendor: "Generic", name: "Generic PP", temp_min: "220", temp_max: "260", pressure: "0.02" },
+    PPS: { db_id: "00017", rfid: "00019", vendor: "Generic", name: "Generic PPS", temp_min: "320", temp_max: "350", pressure: "0.02" },
+    "PPS-CF": { db_id: "00018", rfid: "00017", vendor: "Generic", name: "Generic PPS-CF", temp_min: "300", temp_max: "350", pressure: "0.02" },
+    PVA: { db_id: "00011", rfid: "00005", vendor: "Generic", name: "Generic PVA", temp_min: "215", temp_max: "225", pressure: "0.02" },
+    TPU: { db_id: "00005", rfid: "00011", vendor: "Generic", name: "Generic TPU", temp_min: "210", temp_max: "240", pressure: "0.02" },
+    OTHER: { db_id: "", rfid: "", vendor: "Generic", name: "Generic Material", temp_min: "200", temp_max: "240", pressure: "0.04" },
+  };
+  const MATERIAL_NAME_OPTIONS = {
+    PLA: ["Generic PLA", "Generic PLA-Silk"],
   };
 
   const CARD_ID = "k1c-cfs-card";
@@ -168,6 +183,10 @@
     return Math.round(temp * 100) / 100;
   }
 
+  function presetMaterialType(presetKey) {
+    return presetKey === "PLA-SILK" ? "PLA" : String(presetKey || "").trim().toUpperCase();
+  }
+
   function normalizePresetKey(type, vendor, name) {
     return [
       String(type || "").trim().toUpperCase(),
@@ -181,11 +200,34 @@
     let matchedId = "";
     Object.keys(MATERIAL_PRESETS).some(function (presetType) {
       const preset = MATERIAL_PRESETS[presetType];
-      if (normalizePresetKey(presetType, preset.vendor, preset.name) !== key) return false;
+      if (normalizePresetKey(presetMaterialType(presetType), preset.vendor, preset.name) !== key) return false;
       matchedId = String(preset.db_id || "");
       return true;
     });
     return matchedId;
+  }
+
+  function findPresetByTypeAndName(type, name) {
+    const normalizedType = String(type || "").trim().toUpperCase();
+    const normalizedName = String(name || "").trim().toLowerCase();
+    let matchedPreset = null;
+    Object.keys(MATERIAL_PRESETS).some(function (presetKey) {
+      const preset = MATERIAL_PRESETS[presetKey];
+      if (presetMaterialType(presetKey) !== normalizedType) return false;
+      if (String(preset.name || "").trim().toLowerCase() !== normalizedName) return false;
+      matchedPreset = preset;
+      return true;
+    });
+    return matchedPreset;
+  }
+
+  function listPresetsForType(type) {
+    const normalizedType = String(type || "").trim().toUpperCase();
+    return Object.keys(MATERIAL_PRESETS).filter(function (presetKey) {
+      return presetMaterialType(presetKey) === normalizedType;
+    }).map(function (presetKey) {
+      return MATERIAL_PRESETS[presetKey];
+    });
   }
 
   function materialStatus(stateValue, present) {
@@ -506,23 +548,25 @@
     saveButton.textContent = "Saving";
     try {
       const normalizedType = String(draft.type || "").trim().toUpperCase();
-      const preset = MATERIAL_PRESETS[normalizedType] || null;
+      const preset = findPresetByTypeAndName(normalizedType, draft.name) || MATERIAL_PRESETS[normalizedType] || null;
       const resolvedMinTemp = preset ? preset.temp_min : draft.temp_min;
       const resolvedMaxTemp = preset ? preset.temp_max : draft.temp_max;
+      const resolvedRfid = preset && preset.rfid ? preset.rfid : String((slot.raw && slot.raw.rfid) || slot.rfid || "");
+      const resolvedPressure = preset && preset.pressure ? preset.pressure : String((slot.raw && slot.raw.pressure) || "");
       const payload = {
         method: "set",
         params: {
           modifyMaterial: {
             boxId: slot.box_id || 1,
             id: slot.material_index,
-            rfid: String((slot.raw && slot.raw.rfid) || slot.rfid || ""),
+            rfid: resolvedRfid,
             type: normalizedType,
             vendor: String(draft.vendor || "").trim(),
             name: String(draft.name || "").trim(),
             color: printerColorValue(String(draft.color || "").trim()),
             minTemp: normalizeTemperatureValue(resolvedMinTemp),
             maxTemp: normalizeTemperatureValue(resolvedMaxTemp),
-            pressure: String((slot.raw && slot.raw.pressure) || ""),
+            pressure: resolvedPressure,
           },
         },
       };
@@ -709,9 +753,7 @@
     vendorInput.type = "text";
     vendorInput.value = slot.vendor || "";
 
-    const nameInput = document.createElement("input");
-    nameInput.type = "text";
-    nameInput.value = slot.name || "";
+    const nameSelect = document.createElement("select");
 
     const tempMinInput = document.createElement("input");
     tempMinInput.type = "number";
@@ -729,25 +771,50 @@
 
     let materialDbId = String(slot.material_db_id || inferMaterialDbId(slot.type, slot.vendor, slot.name) || "");
 
-    function applyPreset(materialType) {
-      const preset = MATERIAL_PRESETS[materialType];
+    function syncNameOptions(materialType, preferredName) {
+      const presets = listPresetsForType(materialType);
+      const names = (MATERIAL_NAME_OPTIONS[materialType] || presets.map(function (preset) {
+        return preset.name;
+      })).filter(Boolean);
+      const currentName = String(preferredName || slot.name || "").trim();
+      nameSelect.innerHTML = "";
+      names.forEach(function (name) {
+        const option = document.createElement("option");
+        option.value = name;
+        option.textContent = name;
+        if (currentName && currentName === name) option.selected = true;
+        nameSelect.appendChild(option);
+      });
+      if (!nameSelect.value && names[0]) nameSelect.value = names[0];
+    }
+
+    function applyPreset(materialType, preferredName) {
+      syncNameOptions(materialType, preferredName);
+      const preset = findPresetByTypeAndName(materialType, nameSelect.value) || listPresetsForType(materialType)[0];
       if (!preset) return;
       materialDbId = String(preset.db_id || "");
       vendorInput.value = preset.vendor;
-      nameInput.value = preset.name;
+      nameSelect.value = preset.name;
       tempMinInput.value = preset.temp_min;
       tempMaxInput.value = preset.temp_max;
     }
 
     select.addEventListener("change", function () {
-      applyPreset(select.value);
+      applyPreset(select.value, "");
     });
+
+    nameSelect.addEventListener("change", function () {
+      applyPreset(select.value, nameSelect.value);
+    });
+
+    syncNameOptions(select.value, slot.name || "");
+    if (nameSelect.value) applyPreset(select.value, nameSelect.value);
 
     const grid = document.createElement("div");
     grid.className = "k1c-cfs-edit-grid";
     grid.appendChild(createField("Type", select));
     grid.appendChild(createField("Vendor", vendorInput));
-    const nameField = createField("Name", nameInput);
+    const nameField = createField("Name", nameSelect);
     nameField.classList.add("wide");
     grid.appendChild(nameField);
     grid.appendChild(createField("Min Temp", tempMinInput));
@@ -769,10 +836,10 @@
       saveSlot(
         slot,
         {
-          material_db_id: materialDbId || inferMaterialDbId(select.value, vendorInput.value, nameInput.value),
+          material_db_id: materialDbId || inferMaterialDbId(select.value, vendorInput.value, nameSelect.value),
           type: select.value,
           vendor: vendorInput.value,
-          name: nameInput.value,
+          name: nameSelect.value,
           temp_min: tempMinInput.value,
           temp_max: tempMaxInput.value,
           color: colorInput.value,

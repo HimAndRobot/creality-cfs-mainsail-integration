@@ -2,5 +2,121 @@
   "1A": {
     "percent": 100,
     "type": "PETG"
+  },
+  "_captured_modify_material": {
+    "PLA": {
+      "rfid": "00001",
+      "minTemp": 190.00000001,
+      "maxTemp": 240.00000001,
+      "pressure": "0.04"
+    },
+    "PLA-Silk": {
+      "rfid": "00005",
+      "minTemp": 190.00000001,
+      "maxTemp": 240.00000001,
+      "pressure": "0.052"
+    },
+    "PETG": {
+      "rfid": "00001",
+      "minTemp": 220.00000001,
+      "maxTemp": 270.00000001,
+      "pressure": "0.08"
+    },
+    "ABS": {
+      "rfid": "00003",
+      "minTemp": 240.00000001,
+      "maxTemp": 280.00000001,
+      "pressure": "0.06"
+    },
+    "ASA": {
+      "rfid": "00004",
+      "minTemp": 240.00000001,
+      "maxTemp": 280.00000001,
+      "pressure": "0.044"
+    },
+    "BVOH": {
+      "rfid": "00007",
+      "minTemp": 200.00000001,
+      "maxTemp": 220.00000001,
+      "pressure": "0.02"
+    },
+    "HIPS": {
+      "rfid": "00010",
+      "minTemp": 220.00000001,
+      "maxTemp": 250.00000001,
+      "pressure": "0.02"
+    },
+    "PA": {
+      "rfid": "00012",
+      "minTemp": 240.00000001,
+      "maxTemp": 260.00000001,
+      "pressure": "0.01"
+    },
+    "PA-CF": {
+      "rfid": "00008",
+      "minTemp": 260.00000001,
+      "maxTemp": 300.00000001,
+      "pressure": "0.01"
+    },
+    "PC": {
+      "rfid": "00009",
+      "minTemp": 250.00000001,
+      "maxTemp": 270.00000001,
+      "pressure": "0.05"
+    },
+    "PET": {
+      "rfid": "00021",
+      "minTemp": 250.00000001,
+      "maxTemp": 270.00000001,
+      "pressure": "0.02"
+    },
+    "PET-CF": {
+      "rfid": "00020",
+      "minTemp": 280.00000001,
+      "maxTemp": 320.00000001,
+      "pressure": "0.02"
+    },
+    "PETG-CF": {
+      "rfid": "00003",
+      "minTemp": 240.00000001,
+      "maxTemp": 260.00000001,
+      "pressure": "0.02"
+    },
+    "PLA-CF": {
+      "rfid": "00001",
+      "minTemp": 190.00000001,
+      "maxTemp": 240.00000001,
+      "pressure": "0.03"
+    },
+    "PP": {
+      "rfid": "00006",
+      "minTemp": 220.00000001,
+      "maxTemp": 260.00000001,
+      "pressure": "0.02"
+    },
+    "PPS": {
+      "rfid": "00019",
+      "minTemp": 320.00000001,
+      "maxTemp": 350.00000001,
+      "pressure": "0.02"
+    },
+    "PPS-CF": {
+      "rfid": "00017",
+      "minTemp": 300.00000001,
+      "maxTemp": 350.00000001,
+      "pressure": "0.02"
+    },
+    "PVA": {
+      "rfid": "00005",
+      "minTemp": 215.00000001,
+      "maxTemp": 225.00000001,
+      "pressure": "0.02"
+    },
+    "TPU": {
+      "rfid": "00011",
+      "minTemp": 210.00000001,
+      "maxTemp": 240.00000001,
+      "pressure": "0.02"
+    }
   }
 }
