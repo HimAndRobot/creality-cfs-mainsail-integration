@@ -522,6 +522,7 @@
           },
         },
       };
+      console.log("[K1C CFS][saveSlot] payload", JSON.stringify(payload));
       if (!sendJson(payload)) throw new Error("WebSocket not connected");
       closeModal();
       window.setTimeout(requestBoxsInfo, 350);
@@ -560,22 +561,25 @@
       return input;
     }
 
+    const purgeMaterials = [
+      { type: "PLA", id: "00001" },
+      { type: "PETG", id: "00003" },
+      { type: "ABS", id: "00004" },
+      { type: "TPU", id: "00005" },
+      { type: "ASA", id: "00007" },
+      { type: "PA", id: "00008" },
+      { type: "PC", id: "00021" },
+    ];
+
     const grid = document.createElement("div");
     grid.className = "k1c-cfs-edit-grid";
+    const purgeInputs = {};
 
-    const plaTempInput = tempInput("");
-    const petgTempInput = tempInput("");
-
-    grid.appendChild(createField("PLA", plaTempInput));
-    grid.appendChild(createField("Temperature", petgTempInput)); // placeholder, replaced below
-    grid.lastChild.querySelector("label").textContent = "PETG";
-    grid.firstChild.nextSibling.querySelector("label").textContent = "Temperature";
-    grid.firstChild.querySelector("label").textContent = "PLA";
-    grid.firstChild.nextSibling.remove();
-    grid.appendChild(createField("Temperature", plaTempInput));
-    grid.appendChild(createField("PETG", petgTempInput));
-    grid.appendChild(createField("Temperature", petgTempInput));
-    while (grid.children.length > 4) grid.removeChild(grid.children[0]);
+    purgeMaterials.forEach(function (entry) {
+      const input = tempInput("");
+      purgeInputs[entry.type] = input;
+      grid.appendChild(createField(entry.type, input));
+    });
 
     card.appendChild(grid);
 
@@ -595,10 +599,13 @@
       save.disabled = true;
       save.textContent = "Saving";
       try {
-        await runKlipperCommand("CFS_SET_MATERIAL_DB_TEMP ID=00001 TEMP=" + String(plaTempInput.value || "").trim());
-        await runKlipperCommand("CFS_SET_MATERIAL_DB_TEMP ID=00003 TEMP=" + String(petgTempInput.value || "").trim());
-        MATERIAL_PRESETS.PLA.temp_max = String(plaTempInput.value || "").trim();
-        MATERIAL_PRESETS.PETG.temp_max = String(petgTempInput.value || "").trim();
+        for (var i = 0; i < purgeMaterials.length; i += 1) {
+          var entry = purgeMaterials[i];
+          var value = String((purgeInputs[entry.type] && purgeInputs[entry.type].value) || "").trim();
+          if (!value) continue;
+          await runKlipperCommand("CFS_SET_MATERIAL_DB_TEMP ID=" + entry.id + " TEMP=" + value);
+          if (MATERIAL_PRESETS[entry.type]) MATERIAL_PRESETS[entry.type].temp_max = value;
+        }
         closeModal();
       } catch (error) {
         window.alert("Failed to save material config: " + (error.message || String(error)));
@@ -622,11 +629,20 @@
       const data = await queryKlipperObject("cfs_material_db=purge_temps");
       const status = data && data.result && data.result.status && data.result.status.cfs_material_db;
       const temps = status && status.purge_temps ? status.purge_temps : {};
-      plaTempInput.value = temps.pla == null ? String(MATERIAL_PRESETS.PLA.temp_max || "") : String(temps.pla);
-      petgTempInput.value = temps.petg == null ? String(MATERIAL_PRESETS.PETG.temp_max || "") : String(temps.petg);
+      purgeMaterials.forEach(function (entry) {
+        var key = String(entry.type || "").toLowerCase();
+        var input = purgeInputs[entry.type];
+        if (!input) return;
+        input.value = temps[key] == null
+          ? String((MATERIAL_PRESETS[entry.type] && MATERIAL_PRESETS[entry.type].temp_max) || "")
+          : String(temps[key]);
+      });
     } catch (error) {
-      plaTempInput.value = String(MATERIAL_PRESETS.PLA.temp_max || "");
-      petgTempInput.value = String(MATERIAL_PRESETS.PETG.temp_max || "");
+      purgeMaterials.forEach(function (entry) {
+        var input = purgeInputs[entry.type];
+        if (!input) return;
+        input.value = String((MATERIAL_PRESETS[entry.type] && MATERIAL_PRESETS[entry.type].temp_max) || "");
+      });
     }
   }
 
