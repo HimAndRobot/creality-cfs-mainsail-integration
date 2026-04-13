@@ -505,6 +505,10 @@
     saveButton.disabled = true;
     saveButton.textContent = "Saving";
     try {
+      const normalizedType = String(draft.type || "").trim().toUpperCase();
+      const preset = MATERIAL_PRESETS[normalizedType] || null;
+      const resolvedMinTemp = preset ? preset.temp_min : draft.temp_min;
+      const resolvedMaxTemp = preset ? preset.temp_max : draft.temp_max;
       const payload = {
         method: "set",
         params: {
@@ -512,12 +516,12 @@
             boxId: slot.box_id || 1,
             id: slot.material_index,
             rfid: String((slot.raw && slot.raw.rfid) || slot.rfid || ""),
-            type: String(draft.type || "").trim().toUpperCase(),
+            type: normalizedType,
             vendor: String(draft.vendor || "").trim(),
             name: String(draft.name || "").trim(),
             color: printerColorValue(String(draft.color || "").trim()),
-            minTemp: normalizeTemperatureValue(draft.temp_min),
-            maxTemp: normalizeTemperatureValue(draft.temp_max),
+            minTemp: normalizeTemperatureValue(resolvedMinTemp),
+            maxTemp: normalizeTemperatureValue(resolvedMaxTemp),
             pressure: String((slot.raw && slot.raw.pressure) || ""),
           },
         },
