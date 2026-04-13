@@ -3,7 +3,7 @@
     "name": "K1C CFS Editor",
     "slug": "k1c-cfs-editor",
     "version": "0.1.0",
-    "icon": "../static/icon.png",
+    "icon": "./assets/icon.png",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
     "assetBundlePatterns": [
@@ -23,7 +23,7 @@
         "READ_MEDIA_IMAGES"
       ],
       "adaptiveIcon": {
-        "foregroundImage": "../static/icon.png",
+        "foregroundImage": "./assets/icon.png",
         "backgroundColor": "#131313"
       },
       "package": "com.anonymous.k1ccfseditor"

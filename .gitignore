@@ -7,7 +7,6 @@ app/.DS_Store
 app/node_modules/
 app/.expo/
 app/.env
-app/android/
 app/ios/
 
 .claude/worktrees/
