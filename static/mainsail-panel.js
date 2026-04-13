@@ -87,12 +87,12 @@
       ".k1c-cfs-edit-inline{background:transparent;border:1px solid transparent;color:#9e9e9e;width:36px;height:36px;border-radius:6px;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .2s ease}",
       ".k1c-cfs-edit-inline:hover{background:#3a3a3a;color:#ececec}",
       ".k1c-cfs-edit-inline svg,.k1c-cfs-action svg{width:18px;height:18px;fill:currentColor}",
-      ".k1c-cfs-controls{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding-top:12px;border-top:1px solid #3a3a3a}",
-      ".k1c-cfs-controls.with-config{grid-template-columns:1fr 1fr}",
+      ".k1c-cfs-controls{display:flex;flex-direction:column;gap:12px;padding-top:12px;border-top:1px solid #3a3a3a}",
+      ".k1c-cfs-controls-row{display:flex;gap:12px}",
+      ".k1c-cfs-controls-row .k1c-cfs-action{flex:1 1 0}",
       ".k1c-cfs-action{background:#2a2a2a;color:#ececec;border:1px solid #3a3a3a;padding:12px 14px;border-radius:8px;font-size:13px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;transition:all .2s ease}",
       ".k1c-cfs-action:hover:not(:disabled){background:#333;border-color:#555}",
       ".k1c-cfs-action:disabled{opacity:.35;cursor:not-allowed}",
-      ".k1c-cfs-action.full-row{grid-column:1 / -1}",
       ".k1c-cfs-action-loading{display:inline-flex;align-items:center;gap:8px}",
       ".k1c-cfs-action-loading-dot{width:9px;height:9px;border-radius:50%;background:#60a5fa;box-shadow:0 0 0 rgba(96,165,250,.45);animation:k1c-cfs-pulse 1s ease-in-out infinite;flex-shrink:0}",
       "#" + MODAL_ID + "{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;padding:18px;background:rgba(0,0,0,.65);z-index:10001;backdrop-filter:blur(2px)}",
@@ -121,7 +121,7 @@
       ".k1c-cfs-save-btn:hover{background:rgba(34,197,94,.15);border-color:rgba(34,197,94,.5)}",
       "#" + FLOAT_ID + "{position:fixed;right:18px;bottom:18px;width:min(520px,calc(100vw - 24px));z-index:9999}",
       "#" + FLOAT_ID + " ." + CARD_ID + "-shell{box-shadow:0 20px 48px rgba(0,0,0,.36)}",
-      "@media (max-width:640px){.k1c-cfs-grid,.k1c-cfs-controls,.k1c-cfs-edit-grid{grid-template-columns:1fr}.k1c-cfs-field.wide{grid-column:span 1}}",
+      "@media (max-width:640px){.k1c-cfs-grid,.k1c-cfs-edit-grid{grid-template-columns:1fr}.k1c-cfs-controls-row{flex-direction:column}.k1c-cfs-field.wide{grid-column:span 1}}",
     ].join("");
     document.head.appendChild(style);
   }
@@ -800,7 +800,9 @@
     shell.appendChild(gridEl);
 
     const controls = document.createElement("div");
-    controls.className = "k1c-cfs-controls with-config";
+    controls.className = "k1c-cfs-controls";
+    const controlsRow = document.createElement("div");
+    controlsRow.className = "k1c-cfs-controls-row";
 
     const feedBtn = document.createElement("button");
     feedBtn.type = "button";
@@ -820,7 +822,7 @@
 
     const configBtn = document.createElement("button");
     configBtn.type = "button";
-    configBtn.className = "k1c-cfs-action full-row";
+    configBtn.className = "k1c-cfs-action";
     configBtn.appendChild(createSvgPath("M19.4 13a7.8 7.8 0 0 0 .1-1 7.8 7.8 0 0 0-.1-1l2.1-1.6-2-3.4-2.5 1a7.2 7.2 0 0 0-1.7-1l-.4-2.7h-4l-.4 2.7a7.2 7.2 0 0 0-1.7 1l-2.5-1-2 3.4L4.6 11a7.8 7.8 0 0 0-.1 1 7.8 7.8 0 0 0 .1 1l-2.1 1.6 2 3.4 2.5-1a7.2 7.2 0 0 0 1.7 1l.4 2.7h4l.4-2.7a7.2 7.2 0 0 0 1.7-1l2.5 1 2-3.4-2.1-1.6zM12 15.5A3.5 3.5 0 1 1 12 8a3.5 3.5 0 0 1 0 7.5z"));
     const configText = document.createElement("span");
     configText.textContent = "Purge Settings";
@@ -846,8 +848,9 @@
     };
     retractBtnEl = retractBtn;
 
-    controls.appendChild(feedBtn);
-    controls.appendChild(retractBtn);
+    controlsRow.appendChild(feedBtn);
+    controlsRow.appendChild(retractBtn);
+    controls.appendChild(controlsRow);
     controls.appendChild(configBtn);
     shell.appendChild(controls);
     return root;
