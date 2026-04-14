@@ -18,6 +18,7 @@ With it, you can:
 - see the four CFS channels inside Mainsail
 - view filament type, humidity, and temperature
 - edit filament information
+- change purge temperatures for each supported material
 - start `Feed`, `Switch`, and `Retract` directly from the panel
 - follow printer-side actions with button lock and loading indicators
 - use the mobile app to register printers, edit filaments, and capture spool colors
@@ -50,6 +51,12 @@ Then:
 3. Press `Enter`
 4. Refresh Mainsail in the browser
 
+If you previously removed the Creality Web Interface with Guilouz Helper Script and the CFS panel loads but shows no information, run the menu again and:
+
+1. Press `3` for `Reactivate CFS Service`
+2. Wait for the script to finish
+3. Refresh Mainsail in the browser
+
 ## Removal
 
 Run the menu again:
@@ -66,10 +73,14 @@ Then:
 3. Press `Enter`
 4. Refresh Mainsail in the browser
 
+If option `3` had reactivated the Creality `web-server` for CFS data, `Remove` will disable it again and restore the previous state.
+
 ## Notes
 
 - The panel is loaded directly inside Mainsail
 - If you do not see the panel after install or remove, refresh the browser
+- If you use Guilouz Helper Script to remove the Creality Web Interface, the CFS socket on port `9999` may be disabled with `/usr/bin/web-server`
+- In that case, use menu option `3` to reactivate only the CFS service without restoring the full Creality interface
 
 ## Mobile App
 

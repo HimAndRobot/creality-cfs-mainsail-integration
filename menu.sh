@@ -17,6 +17,9 @@ KLIPPER_EXTRA_TARGET="${KLIPPER_EXTRA_TARGET:-/usr/share/klipper/klippy/extras/c
 KLIPPER_EXTRA_PYC_TARGET="${KLIPPER_EXTRA_PYC_TARGET:-/usr/share/klipper/klippy/extras/cfs_material_db.pyc}"
 KLIPPER_CFG_TARGET="${KLIPPER_CFG_TARGET:-/usr/data/printer_data/config/cfs_material_db.cfg}"
 KLIPPER_INCLUDE_LINE="[include cfs_material_db.cfg]"
+CREALITY_WEB_SERVER="${CREALITY_WEB_SERVER:-/usr/bin/web-server}"
+CREALITY_WEB_SERVER_DISABLED="${CREALITY_WEB_SERVER_DISABLED:-/usr/bin/web-server.disabled}"
+CFS_SERVICE_MARKER="${CFS_SERVICE_MARKER:-$SCRIPT_DIR/.cfs-service-reactivated}"
 
 die() {
   printf '%s\n' "$1" >&2
@@ -152,6 +155,46 @@ remove_printer_include() {
   trap - EXIT INT TERM
 }
 
+reactivate_cfs_service() {
+  printf '\nReactivating CFS service...\n'
+  restored_binary=0
+  if [ -f "$CREALITY_WEB_SERVER_DISABLED" ] && [ ! -f "$CREALITY_WEB_SERVER" ]; then
+    printf 'Step 1: restoring web-server binary\n'
+    mv "$CREALITY_WEB_SERVER_DISABLED" "$CREALITY_WEB_SERVER"
+    chmod 755 "$CREALITY_WEB_SERVER" || true
+    restored_binary=1
+  else
+    printf 'Step 1: web-server binary already available\n'
+  fi
+
+  printf 'Step 2: restarting web-server\n'
+  killall -q web-server 2>/dev/null || true
+  if [ -f "$CREALITY_WEB_SERVER" ]; then
+    "$CREALITY_WEB_SERVER" > /dev/null 2>&1 &
+    sleep 1
+  else
+    die "Missing file: $CREALITY_WEB_SERVER"
+  fi
+
+  printf 'Step 3: validating port 9999\n'
+  if command -v nc >/dev/null 2>&1; then
+    if nc -z 127.0.0.1 9999 >/dev/null 2>&1; then
+      printf 'CFS service is listening on port 9999.\n'
+    else
+      die "CFS service did not start on port 9999"
+    fi
+  else
+    printf 'nc not available; skipped socket validation.\n'
+  fi
+
+  if [ "$restored_binary" -eq 1 ]; then
+    : > "$CFS_SERVICE_MARKER"
+  fi
+
+  printf '\nCFS service reactivated.\n'
+  pause_and_exit
+}
+
 install_local() {
   require_file "$TARGET_HTML"
   require_file "$PRINTER_CFG"
@@ -191,11 +234,22 @@ remove_installation() {
   rm -rf "$SCRIPT_DIR/.k1c-cfs-mini"
   rm -f "$PANEL_JS_TARGET"
   rm -f "$KLIPPER_EXTRA_TARGET" "$KLIPPER_EXTRA_PYC_TARGET" "$KLIPPER_CFG_TARGET"
+  printf 'Step 5: restoring previous CFS service state\n'
+  if [ -f "$CFS_SERVICE_MARKER" ]; then
+    killall -q web-server 2>/dev/null || true
+    if [ -f "$CREALITY_WEB_SERVER" ] && [ ! -f "$CREALITY_WEB_SERVER_DISABLED" ]; then
+      mv "$CREALITY_WEB_SERVER" "$CREALITY_WEB_SERVER_DISABLED"
+    fi
+    rm -f "$CFS_SERVICE_MARKER"
+    printf 'CFS service disabled again.\n'
+  else
+    printf 'CFS service state unchanged.\n'
+  fi
   printf '\nRemoved.\n'
   printf 'Target: %s\n' "$TARGET_HTML"
   printf 'Backup kept at: %s\n' "$BACKUP_HTML"
   printf 'Printer config backup kept at: %s\n' "$PRINTER_CFG_BACKUP"
-  printf 'Running processes were left untouched on purpose.\n\n'
+  printf '\n'
   printf 'Removal finished.\n'
   pause_and_exit
 }
@@ -205,6 +259,7 @@ show_menu() {
   printf 'K1C CFS Mainsail Injection\n'
   printf '1. Install\n'
   printf '2. Remove\n'
+  printf '3. Reactivate CFS Service\n'
   printf 'Q. Quit\n'
   printf '> '
 }
@@ -221,6 +276,9 @@ main() {
         ;;
       2)
         remove_installation
+        ;;
+      3)
+        reactivate_cfs_service
         ;;
       q|Q)
         exit 0
