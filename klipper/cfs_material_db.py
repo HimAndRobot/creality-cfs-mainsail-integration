@@ -81,6 +81,7 @@ class CfsMaterialDb:
     def _set_target_temp(self, target, temp_value):
         kv = target.setdefault("kvParam", {})
         kv["nozzle_temperature"] = temp_value
+        kv["nozzle_temperature_initial_layer"] = temp_value
         return kv
 
     def _read_purge_temps(self):
