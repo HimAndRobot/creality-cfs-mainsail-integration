@@ -49,6 +49,7 @@
   let root = null;
   let gridEl = null;
   let humidityLabelEl = null;
+  let tempLabelEl = null;
   let timer = null;
   let heartbeatTimer = null;
   let observer = null;
@@ -82,6 +83,7 @@
       ".k1c-cfs-badge{display:flex;align-items:center;gap:8px;background:#242424;color:#ececec;padding:9px 16px;border-radius:8px;font-size:12px;font-weight:700;border:none;line-height:1}",
       ".k1c-cfs-badge svg{width:15px;height:15px;fill:currentColor;opacity:.95}",
       ".k1c-cfs-badge.humidity{color:#77a7ff;background:#232323;box-shadow:inset 0 1px 0 rgba(255,255,255,.02)}",
+      ".k1c-cfs-badge.temperature{color:#f7b955;background:#232323;box-shadow:inset 0 1px 0 rgba(255,255,255,.02)}",
       ".k1c-cfs-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}",
       ".k1c-cfs-item{position:relative;background:#242424;border:1px solid #3a3a3a;border-radius:8px;padding:14px;display:flex;justify-content:space-between;align-items:center;gap:12px;cursor:pointer;transition:background .2s ease,border-color .2s ease}",
       ".k1c-cfs-item:hover{background:#2e2e2e}",
@@ -456,7 +458,8 @@
 
   function isDashboardRoute() {
     const path = String(window.location.pathname || "").replace(/\/+$/, "");
-    return !path || path === "/";
+    const hash = String(window.location.hash || "").replace(/\?.*$/, "").replace(/\/+$/, "");
+    return (!path || path === "/") && (!hash || hash === "#" || hash === "#/" || hash === "#!");
   }
 
   function detectFrontend() {
@@ -477,10 +480,16 @@
   function updateHumidity(humidity, temp) {
     if (!humidityLabelEl) return;
     const humidityValue = humidity === null || humidity === undefined || humidity === "" ? "--" : Math.round(Number(humidity));
+    const tempValue = temp === null || temp === undefined || temp === "" ? "--" : Math.round(Number(temp));
     humidityLabelEl.textContent = humidityValue + "%";
+    if (tempLabelEl) {
+      tempLabelEl.textContent = tempValue + "C";
+    }
     if (humidityLabelEl.parentElement) {
-      const tempValue = temp === null || temp === undefined || temp === "" ? "--" : Math.round(Number(temp));
-      humidityLabelEl.parentElement.title = "Humidity " + humidityValue + "% / Temp " + tempValue + "C";
+      humidityLabelEl.parentElement.title = "Humidity " + humidityValue + "%";
+    }
+    if (tempLabelEl && tempLabelEl.parentElement) {
+      tempLabelEl.parentElement.title = "Temp " + tempValue + "C";
     }
   }
 
@@ -1006,13 +1015,26 @@
     humidityLabelEl.className = "k1c-cfs-humidity-label";
     humidityLabelEl.textContent = "--%";
     humidityBadge.appendChild(humidityLabelEl);
+
+    const tempBadge = document.createElement("div");
+    tempBadge.className = "k1c-cfs-badge temperature";
+    tempBadge.appendChild(createSvgPath("M14 14.76V5a2 2 0 0 0-4 0v9.76a4 4 0 1 0 4 0zM12 20a2 2 0 0 1-1-3.73V5a1 1 0 0 1 2 0v11.27A2 2 0 0 1 12 20z"));
+    tempLabelEl = document.createElement("span");
+    tempLabelEl.className = "k1c-cfs-temp-label";
+    tempLabelEl.textContent = "--C";
+    tempBadge.appendChild(tempLabelEl);
     if (frontend === "fluidd") {
       const right = document.createElement("div");
       right.className = "col col-auto align-self-center";
+      right.style.display = "flex";
+      right.style.gap = "8px";
+      right.style.alignItems = "center";
       right.appendChild(humidityBadge);
+      right.appendChild(tempBadge);
       content.appendChild(right);
     } else {
       content.appendChild(humidityBadge);
+      content.appendChild(tempBadge);
     }
 
     toolbar.appendChild(content);
@@ -1194,17 +1216,21 @@
       root = document.getElementById(ROOT_ID) || root;
       gridEl = root ? root.querySelector(".k1c-cfs-grid") : gridEl;
       humidityLabelEl = card.querySelector(".k1c-cfs-humidity-label") || humidityLabelEl;
+      tempLabelEl = card.querySelector(".k1c-cfs-temp-label") || tempLabelEl;
       return card;
     }
     return buildPanelCard();
   }
 
   function findDashboardColumn() {
-    const fluiddCards = document.querySelectorAll("main .app-draggable .collapsable-card");
-    if (fluiddCards.length) {
-      const firstFluiddCard = fluiddCards[0];
-      const container = firstFluiddCard.parentElement;
-      if (container) return { column: container, after: firstFluiddCard };
+    const fluiddList = document.querySelector("main .app-draggable.list-group");
+    if (fluiddList) {
+      const fluiddCards = Array.from(fluiddList.querySelectorAll(".collapsable-card"));
+      const jobCard = fluiddCards.find(function (card) {
+        return !!card.querySelector("[role='tablist'], .v-tabs, .v-slide-group");
+      });
+      const anchorCard = jobCard || fluiddCards[0];
+      if (anchorCard) return { column: fluiddList, after: anchorCard };
     }
     const consoleCard = document.querySelector("main .miniconsole-panel");
     if (consoleCard) {
