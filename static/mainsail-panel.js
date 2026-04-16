@@ -459,6 +459,11 @@
     return !path || path === "/";
   }
 
+  function detectFrontend() {
+    if (document.querySelector(".collapsable-card")) return "fluidd";
+    return "mainsail";
+  }
+
   function unmountPanel() {
     const card = document.getElementById(CARD_ID);
     if (card) card.remove();
@@ -960,21 +965,38 @@
   }
 
   function buildPanelCard() {
+    const frontend = detectFrontend();
     const card = document.createElement("div");
     card.id = CARD_ID;
-    card.className = "v-card v-sheet theme--dark panel k1c-cfs-panel-card mb-3 mb-md-6";
+    card.className = frontend === "fluidd"
+      ? "mb-2 mb-md-4 v-card v-sheet theme--dark rounded-md collapsable-card k1c-cfs-panel-card"
+      : "v-card v-sheet theme--dark panel k1c-cfs-panel-card mb-3 mb-md-6";
 
     const toolbar = document.createElement("header");
-    toolbar.className = "panel-toolbar v-sheet theme--dark v-toolbar v-toolbar--dense v-toolbar--flat collapsible";
-    toolbar.style.paddingTop = "3px";
-    toolbar.style.paddingBottom = "3px";
-    const content = document.createElement("div");
-    content.className = "v-toolbar__content d-flex align-center justify-space-between";
-    content.style.padding = "0 18px 0 20px";
-    content.style.minHeight = "46px";
+    let content;
+    if (frontend === "fluidd") {
+      toolbar.className = "v-card__title collapsable-card-title card-heading";
+      content = document.createElement("div");
+      content.className = "row flex-nowrap no-gutters align-center";
+      content.style.width = "100%";
+      content.style.margin = "0";
+    } else {
+      toolbar.className = "panel-toolbar v-sheet theme--dark v-toolbar v-toolbar--dense v-toolbar--flat collapsible";
+      toolbar.style.paddingTop = "3px";
+      toolbar.style.paddingBottom = "3px";
+      content = document.createElement("div");
+      content.className = "v-toolbar__content d-flex align-center justify-space-between";
+      content.style.padding = "0 18px 0 20px";
+      content.style.minHeight = "46px";
+    }
     const title = document.createElement("div");
-    title.className = "v-toolbar__title d-flex align-center";
-    title.textContent = "CFS";
+    if (frontend === "fluidd") {
+      title.className = "text-no-wrap col align-self-center";
+      title.innerHTML = '<span class="font-weight-light">CFS</span>';
+    } else {
+      title.className = "v-toolbar__title d-flex align-center";
+      title.textContent = "CFS";
+    }
     content.appendChild(title);
 
     const humidityBadge = document.createElement("div");
@@ -984,12 +1006,19 @@
     humidityLabelEl.className = "k1c-cfs-humidity-label";
     humidityLabelEl.textContent = "--%";
     humidityBadge.appendChild(humidityLabelEl);
-    content.appendChild(humidityBadge);
+    if (frontend === "fluidd") {
+      const right = document.createElement("div");
+      right.className = "col col-auto align-self-center";
+      right.appendChild(humidityBadge);
+      content.appendChild(right);
+    } else {
+      content.appendChild(humidityBadge);
+    }
 
     toolbar.appendChild(content);
 
     const body = document.createElement("div");
-    body.className = "k1c-cfs-card-body";
+    body.className = frontend === "fluidd" ? "v-card__text k1c-cfs-card-body" : "k1c-cfs-card-body";
     body.appendChild(buildRoot());
 
     card.appendChild(toolbar);
@@ -1171,6 +1200,12 @@
   }
 
   function findDashboardColumn() {
+    const fluiddCards = document.querySelectorAll("main .app-draggable .collapsable-card");
+    if (fluiddCards.length) {
+      const firstFluiddCard = fluiddCards[0];
+      const container = firstFluiddCard.parentElement;
+      if (container) return { column: container, after: firstFluiddCard };
+    }
     const consoleCard = document.querySelector("main .miniconsole-panel");
     if (consoleCard) {
       const col = consoleCard.closest(".col");

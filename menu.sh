@@ -2,13 +2,16 @@
 set -eu
 
 SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
-TARGET_HTML="${TARGET_HTML:-/usr/data/mainsail/index.html}"
-BACKUP_HTML="${BACKUP_HTML:-/usr/data/mainsail/index.html.k1c-cfs-mini.bak}"
 INJECT_START="<!-- K1C_CFS_INJECT_START -->"
 INJECT_END="<!-- K1C_CFS_INJECT_END -->"
 INIT_SCRIPT="/etc/init.d/S59k1c_cfs_mini"
 PANEL_JS_SOURCE="${PANEL_JS_SOURCE:-$SCRIPT_DIR/static/mainsail-panel.js}"
-PANEL_JS_TARGET="${PANEL_JS_TARGET:-/usr/data/mainsail/k1c-cfs-panel.js}"
+MAINSAIL_HTML="${MAINSAIL_HTML:-/usr/data/mainsail/index.html}"
+MAINSAIL_BACKUP_HTML="${MAINSAIL_BACKUP_HTML:-/usr/data/mainsail/index.html.k1c-cfs-mini.bak}"
+MAINSAIL_PANEL_JS_TARGET="${MAINSAIL_PANEL_JS_TARGET:-/usr/data/mainsail/k1c-cfs-panel.js}"
+FLUIDD_HTML="${FLUIDD_HTML:-/usr/data/fluidd/index.html}"
+FLUIDD_BACKUP_HTML="${FLUIDD_BACKUP_HTML:-/usr/data/fluidd/index.html.k1c-cfs-mini.bak}"
+FLUIDD_PANEL_JS_TARGET="${FLUIDD_PANEL_JS_TARGET:-/usr/data/fluidd/k1c-cfs-panel.js}"
 PRINTER_CFG="${PRINTER_CFG:-/usr/data/printer_data/config/printer.cfg}"
 PRINTER_CFG_BACKUP="${PRINTER_CFG_BACKUP:-/usr/data/printer_data/config/printer.cfg.k1c-cfs-mini.bak}"
 KLIPPER_EXTRA_SOURCE="${KLIPPER_EXTRA_SOURCE:-$SCRIPT_DIR/klipper/cfs_material_db.py}"
@@ -30,6 +33,30 @@ require_file() {
   [ -f "$1" ] || die "Missing file: $1"
 }
 
+target_html() {
+  case "$1" in
+    mainsail) printf '%s\n' "$MAINSAIL_HTML" ;;
+    fluidd) printf '%s\n' "$FLUIDD_HTML" ;;
+    *) die "Unknown target: $1" ;;
+  esac
+}
+
+target_backup_html() {
+  case "$1" in
+    mainsail) printf '%s\n' "$MAINSAIL_BACKUP_HTML" ;;
+    fluidd) printf '%s\n' "$FLUIDD_BACKUP_HTML" ;;
+    *) die "Unknown target: $1" ;;
+  esac
+}
+
+target_panel_js() {
+  case "$1" in
+    mainsail) printf '%s\n' "$MAINSAIL_PANEL_JS_TARGET" ;;
+    fluidd) printf '%s\n' "$FLUIDD_PANEL_JS_TARGET" ;;
+    *) die "Unknown target: $1" ;;
+  esac
+}
+
 pause_and_exit() {
   printf '\nPress Enter to continue.'
   read -r _ || true
@@ -37,12 +64,15 @@ pause_and_exit() {
 }
 
 backup_once() {
-  if [ ! -f "$BACKUP_HTML" ]; then
-    cp "$TARGET_HTML" "$BACKUP_HTML"
-    chmod 644 "$BACKUP_HTML" || true
-    printf 'Backup created: %s\n' "$BACKUP_HTML"
+  target="$1"
+  src="$(target_html "$target")"
+  backup="$(target_backup_html "$target")"
+  if [ ! -f "$backup" ]; then
+    cp "$src" "$backup"
+    chmod 644 "$backup" || true
+    printf '%s backup created: %s\n' "$target" "$backup"
   else
-    printf 'Backup already exists: %s\n' "$BACKUP_HTML"
+    printf '%s backup already exists: %s\n' "$target" "$backup"
   fi
 }
 
@@ -67,11 +97,13 @@ remove_existing_block() {
 }
 
 write_local_injected_file() {
+  target="$1"
+  target_html_path="$(target_html "$target")"
   tmp_clean="/tmp/k1c-cfs-clean.$$"
   tmp_out="/tmp/k1c-cfs-out.$$"
   trap 'rm -f "$tmp_clean" "$tmp_out"' EXIT INT TERM
 
-  remove_existing_block "$TARGET_HTML" "$tmp_clean"
+  remove_existing_block "$target_html_path" "$tmp_clean"
 
   awk \
     -v start="$INJECT_START" \
@@ -99,19 +131,21 @@ write_local_injected_file() {
     ' "$tmp_clean" > "$tmp_out" || {
       rm -f "$tmp_clean" "$tmp_out"
       trap - EXIT INT TERM
-      die "Could not find </head> in $TARGET_HTML"
+      die "Could not find </head> in $target_html_path"
     }
 
-  cp "$tmp_out" "$TARGET_HTML"
-  chmod 644 "$TARGET_HTML" || true
+  cp "$tmp_out" "$target_html_path"
+  chmod 644 "$target_html_path" || true
   rm -f "$tmp_clean" "$tmp_out"
   trap - EXIT INT TERM
 }
 
 deploy_local_panel() {
+  target="$1"
+  panel_target="$(target_panel_js "$target")"
   require_file "$PANEL_JS_SOURCE"
-  cp "$PANEL_JS_SOURCE" "$PANEL_JS_TARGET"
-  chmod 644 "$PANEL_JS_TARGET" || true
+  cp "$PANEL_JS_SOURCE" "$panel_target"
+  chmod 644 "$panel_target" || true
 }
 
 install_klipper_extra() {
@@ -196,35 +230,58 @@ reactivate_cfs_service() {
 }
 
 install_local() {
-  require_file "$TARGET_HTML"
+  targets="$1"
   require_file "$PRINTER_CFG"
   printf '\nInstalling local panel...\n'
-  printf 'Step 1: creating backup\n'
-  backup_once
+  printf 'Step 1: creating backups\n'
+  for target in $targets; do
+    require_file "$(target_html "$target")"
+    backup_once "$target"
+  done
   backup_printer_cfg_once
   printf 'Step 2: copying panel script\n'
-  deploy_local_panel
-  printf 'Step 3: injecting Mainsail\n'
-  write_local_injected_file
+  for target in $targets; do
+    deploy_local_panel "$target"
+  done
+  printf 'Step 3: injecting frontend\n'
+  for target in $targets; do
+    write_local_injected_file "$target"
+  done
   printf 'Step 4: installing Klipper extra\n'
   install_klipper_extra
   printf 'Step 5: updating printer config\n'
   ensure_printer_include
   printf '\nInstalled local mode.\n'
-  printf 'Target:  %s\n' "$TARGET_HTML"
-  printf 'Backup:  %s\n' "$BACKUP_HTML"
-  printf 'Panel:   %s\n\n' "$PANEL_JS_TARGET"
+  for target in $targets; do
+    printf '%s target:  %s\n' "$target" "$(target_html "$target")"
+    printf '%s backup:  %s\n' "$target" "$(target_backup_html "$target")"
+    printf '%s panel:   %s\n' "$target" "$(target_panel_js "$target")"
+  done
+  printf '\n'
   printf 'Power off the printer, wait 10 seconds, then power it back on. Enjoy.\n\n'
   printf 'Installation finished.\n'
   pause_and_exit
 }
 
 remove_installation() {
-  require_file "$BACKUP_HTML"
   printf '\nRemoving local files and restoring backup...\n'
-  printf 'Step 1: restoring backup\n'
-  cp "$BACKUP_HTML" "$TARGET_HTML"
-  chmod 644 "$TARGET_HTML" || true
+  printf 'Step 1: restoring backups\n'
+  restored_any=0
+  for target in mainsail fluidd; do
+    target_html_path="$(target_html "$target")"
+    backup="$(target_backup_html "$target")"
+    if [ -f "$backup" ]; then
+      cp "$backup" "$target_html_path"
+      chmod 644 "$target_html_path" || true
+      printf '%s restored from backup.\n' "$target"
+      restored_any=1
+    else
+      printf '%s backup not found; skipped.\n' "$target"
+    fi
+  done
+  if [ "$restored_any" -eq 0 ]; then
+    printf 'No frontend backups found.\n'
+  fi
   printf 'Step 2: removing autostart file\n'
   rm -f "$INIT_SCRIPT"
   printf 'Step 3: removing Klipper include\n'
@@ -232,7 +289,7 @@ remove_installation() {
   printf 'Step 4: removing local files\n'
   rm -f "$SCRIPT_DIR/.env" "$SCRIPT_DIR/run-local.sh"
   rm -rf "$SCRIPT_DIR/.k1c-cfs-mini"
-  rm -f "$PANEL_JS_TARGET"
+  rm -f "$MAINSAIL_PANEL_JS_TARGET" "$FLUIDD_PANEL_JS_TARGET"
   rm -f "$KLIPPER_EXTRA_TARGET" "$KLIPPER_EXTRA_PYC_TARGET" "$KLIPPER_CFG_TARGET"
   printf 'Step 5: restoring previous CFS service state\n'
   if [ -f "$CFS_SERVICE_MARKER" ]; then
@@ -246,12 +303,36 @@ remove_installation() {
     printf 'CFS service state unchanged.\n'
   fi
   printf '\nRemoved.\n'
-  printf 'Target: %s\n' "$TARGET_HTML"
-  printf 'Backup kept at: %s\n' "$BACKUP_HTML"
+  printf 'Mainsail backup kept at: %s\n' "$MAINSAIL_BACKUP_HTML"
+  printf 'Fluidd backup kept at: %s\n' "$FLUIDD_BACKUP_HTML"
   printf 'Printer config backup kept at: %s\n' "$PRINTER_CFG_BACKUP"
   printf '\n'
   printf 'Removal finished.\n'
   pause_and_exit
+}
+
+show_install_menu() {
+  printf '\n'
+  printf 'Install Targets\n'
+  printf '1. Mainsail\n'
+  printf '2. Fluidd\n'
+  printf '3. Both\n'
+  printf 'B. Back\n'
+  printf '> '
+}
+
+choose_install_targets() {
+  while :; do
+    show_install_menu
+    read -r choice || exit 0
+    case "$choice" in
+      1) install_local "mainsail" ;;
+      2) install_local "fluidd" ;;
+      3) install_local "mainsail fluidd" ;;
+      b|B) return ;;
+      *) printf '\nInvalid option.\n' ;;
+    esac
+  done
 }
 
 show_menu() {
@@ -272,7 +353,7 @@ main() {
       '')
         ;;
       1)
-        install_local
+        choose_install_targets
         ;;
       2)
         remove_installation
