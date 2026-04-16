@@ -63,6 +63,14 @@ pause_and_exit() {
   exit 0
 }
 
+pull_repo_updates() {
+  if [ ! -d "$SCRIPT_DIR/.git" ]; then
+    die "Repository metadata not found in $SCRIPT_DIR"
+  fi
+  printf 'Step 1: pulling latest changes\n'
+  git -C "$SCRIPT_DIR" pull --ff-only
+}
+
 backup_once() {
   target="$1"
   src="$(target_html "$target")"
@@ -263,6 +271,42 @@ install_local() {
   pause_and_exit
 }
 
+update_local() {
+  targets="$1"
+  require_file "$PRINTER_CFG"
+  printf '\nUpdating local panel...\n'
+  pull_repo_updates
+  printf 'Step 2: ensuring backups exist\n'
+  for target in $targets; do
+    require_file "$(target_html "$target")"
+    backup_once "$target"
+  done
+  backup_printer_cfg_once
+  printf 'Step 3: refreshing injected assets\n'
+  rm -f "$MAINSAIL_PANEL_JS_TARGET" "$FLUIDD_PANEL_JS_TARGET"
+  rm -f "$KLIPPER_EXTRA_TARGET" "$KLIPPER_EXTRA_PYC_TARGET" "$KLIPPER_CFG_TARGET"
+  for target in $targets; do
+    deploy_local_panel "$target"
+  done
+  printf 'Step 4: refreshing frontend injection\n'
+  for target in $targets; do
+    write_local_injected_file "$target"
+  done
+  printf 'Step 5: refreshing Klipper extra\n'
+  install_klipper_extra
+  printf 'Step 6: validating printer config include\n'
+  ensure_printer_include
+  printf '\nUpdated local mode.\n'
+  for target in $targets; do
+    printf '%s target:  %s\n' "$target" "$(target_html "$target")"
+    printf '%s backup:  %s\n' "$target" "$(target_backup_html "$target")"
+    printf '%s panel:   %s\n' "$target" "$(target_panel_js "$target")"
+  done
+  printf '\n'
+  printf 'Update finished.\n'
+  pause_and_exit
+}
+
 remove_installation() {
   printf '\nRemoving local files and restoring backup...\n'
   printf 'Step 1: restoring backups\n'
@@ -313,7 +357,7 @@ remove_installation() {
 
 show_install_menu() {
   printf '\n'
-  printf 'Install Targets\n'
+  printf 'Select Targets\n'
   printf '1. Mainsail\n'
   printf '2. Fluidd\n'
   printf '3. Both\n'
@@ -321,14 +365,15 @@ show_install_menu() {
   printf '> '
 }
 
-choose_install_targets() {
+choose_targets() {
+  action="$1"
   while :; do
     show_install_menu
     read -r choice || exit 0
     case "$choice" in
-      1) install_local "mainsail" ;;
-      2) install_local "fluidd" ;;
-      3) install_local "mainsail fluidd" ;;
+      1) "$action" "mainsail" ;;
+      2) "$action" "fluidd" ;;
+      3) "$action" "mainsail fluidd" ;;
       b|B) return ;;
       *) printf '\nInvalid option.\n' ;;
     esac
@@ -341,6 +386,7 @@ show_menu() {
   printf '1. Install\n'
   printf '2. Remove\n'
   printf '3. Reactivate CFS Service\n'
+  printf '4. Update\n'
   printf 'Q. Quit\n'
   printf '> '
 }
@@ -353,13 +399,16 @@ main() {
       '')
         ;;
       1)
-        choose_install_targets
+        choose_targets install_local
         ;;
       2)
         remove_installation
         ;;
       3)
         reactivate_cfs_service
+        ;;
+      4)
+        choose_targets update_local
         ;;
       q|Q)
         exit 0
