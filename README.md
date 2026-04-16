@@ -59,6 +59,30 @@ If you previously removed the Creality Web Interface with Guilouz Helper Script 
 2. Wait for the script to finish
 3. Refresh Mainsail or Fluidd in the browser
 
+## Update
+
+Run the menu again:
+
+```sh
+cd creality-cfs-mainsail-integration
+./menu.sh
+```
+
+Then:
+
+1. Press `4` for `Update`
+2. Choose `Mainsail`, `Fluidd`, or `Both`
+3. Wait for the script to finish
+4. Press `Enter`
+5. Refresh the selected frontend in the browser
+
+`Update` will:
+
+- run `git pull --ff-only`
+- refresh the injected frontend files
+- reinstall the Klipper extra files
+- keep the current CFS service state unchanged
+
 ## Removal
 
 Run the menu again:
