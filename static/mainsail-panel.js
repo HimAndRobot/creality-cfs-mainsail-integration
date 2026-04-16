@@ -1023,19 +1023,18 @@
     tempLabelEl.className = "k1c-cfs-temp-label";
     tempLabelEl.textContent = "--C";
     tempBadge.appendChild(tempLabelEl);
+    const right = document.createElement("div");
+    right.style.display = "flex";
+    right.style.gap = "8px";
+    right.style.alignItems = "center";
     if (frontend === "fluidd") {
-      const right = document.createElement("div");
       right.className = "col col-auto align-self-center";
-      right.style.display = "flex";
-      right.style.gap = "8px";
-      right.style.alignItems = "center";
-      right.appendChild(humidityBadge);
-      right.appendChild(tempBadge);
-      content.appendChild(right);
     } else {
-      content.appendChild(humidityBadge);
-      content.appendChild(tempBadge);
+      right.className = "d-flex align-center";
     }
+    right.appendChild(humidityBadge);
+    right.appendChild(tempBadge);
+    content.appendChild(right);
 
     toolbar.appendChild(content);
 
