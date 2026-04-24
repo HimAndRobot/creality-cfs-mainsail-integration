@@ -39,8 +39,8 @@ If the page is already open, just refresh the browser once.
 Clone the repository on the printer:
 
 ```sh
-git clone https://github.com/HimAndRobot/creality-cfs-mainsail-integration.git
-cd creality-cfs-mainsail-integration
+git clone https://github.com/HimAndRobot/creality-cfs-mainsail-integration.git /usr/data/creality-cfs-mainsail-integration
+cd /usr/data/creality-cfs-mainsail-integration
 chmod +x ./menu.sh
 ./menu.sh
 ```
@@ -88,7 +88,7 @@ Then:
 Run the menu again:
 
 ```sh
-cd creality-cfs-mainsail-integration
+cd /usr/data/creality-cfs-mainsail-integration
 ./menu.sh
 ```
 
